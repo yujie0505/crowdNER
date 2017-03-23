@@ -1,0 +1,6 @@
+bin/**/res/
+bin/**/src/
+node_modules/
+npm-debug.log
+option.json
+yarn.lock
