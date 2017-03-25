@@ -27,8 +27,8 @@ const parseLog = ($src, res) => {
       let boxName = `box${log.box}`
       let box = res[boxName] ? res[boxName] : res[boxName] = {}
       let labeler = box[srcID] ? box[srcID] : box[srcID] = {}
-      let paper = labeler[log.pmid] ? labeler[log.pmid] : labeler[log.pmid] = {}
-      paper[log.stcid] = {
+      let article = labeler[log.pmid] ? labeler[log.pmid] : labeler[log.pmid] = {}
+      article[log.stcid] = {
         event   : log.event,
         protein : log.protein
       }
@@ -69,7 +69,9 @@ google.load({
 
     // parse subject information
 
+    let idHash = {}
     for (let i in rows) {
+      idHash[rows[i][opt.sheet.expID]] = rows[i][opt.sheet.studentID]
       if (subject[rows[i][opt.sheet.studentID]])
         subject[rows[i][opt.sheet.studentID]].expID.push(rows[i][opt.sheet.expID])
       else {
@@ -97,8 +99,29 @@ google.load({
 
     // parse world information
 
-    for (let box of src.box) {
-      world.box[box.substring(0, 1).toUpperCase() + box.substring(1)] = {}
+    for (let boxName of src.box) {
+      let box = world.box[boxName.substring(0, 1).toUpperCase() + boxName.substring(1)] = {}
+
+      box.articles = {}
+      for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/)))
+        box.articles[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8')).title
+
+      let logs = 0, student = {}
+      if (expResult[boxName]) {
+        for (let expID in expResult[boxName]) {
+          student[idHash[expID]] = true
+          for (let pmid in expResult[boxName][expID])
+            logs += Object.keys(expResult[boxName][expID][pmid]).length
+        }
+      }
+
+      box.statistic = {
+        answer      : answer[boxName] ? Object.keys(answer[boxName]).length : 0,
+        article     : Object.keys(box.articles).length,
+        expLogs     : logs,
+        subject     : Object.keys(student).length,
+        twoValueStc : JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/stack`))[2].length
+      }
     }
     fs.writeFileSync('../res/world.json', JSON.stringify(world, null, 2))
   })
