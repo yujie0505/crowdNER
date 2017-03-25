@@ -9,7 +9,8 @@ const opt = {
     degree     : 5,
     department : 4,
     expID      : 6,
-    name       : 2
+    name       : 2,
+    studentID  : 3
   },
   srcPath : '../src'
 }
@@ -45,7 +46,7 @@ const src = {
 }
 
 const answer = {}
-const result = {}
+const expResult = {}
 const subject = {}
 const world = {
   abbr : 'PPI',
@@ -69,12 +70,17 @@ google.load({
     // parse subject information
 
     for (let i in rows) {
-      let degree_grade = rows[i][opt.sheet.degree].split('_')
-      subject[rows[i][opt.sheet.expID]] = {
-        degree     : degree_grade[0],
-        department : rows[i][opt.sheet.department],
-        grade      : degree_grade[1],
-        name       : rows[i][opt.sheet.name]
+      if (subject[rows[i][opt.sheet.studentID]])
+        subject[rows[i][opt.sheet.studentID]].expID.push(rows[i][opt.sheet.expID])
+      else {
+        let degree_grade = rows[i][opt.sheet.degree].split('_')
+        subject[rows[i][opt.sheet.studentID]] = {
+          degree     : degree_grade[0],
+          department : rows[i][opt.sheet.department],
+          expID      : [rows[i][opt.sheet.expID]],
+          grade      : degree_grade[1],
+          name       : rows[i][opt.sheet.name]
+        }
       }
     }
     fs.writeFileSync(`${opt.resPath}/subject.json`, JSON.stringify(subject, null, 2))
@@ -86,8 +92,8 @@ google.load({
 
     // parse experiment logs
 
-    parseLog('exp', result)
-    fs.writeFileSync(`${opt.resPath}/result.json`, JSON.stringify(result, null, 2))
+    parseLog('exp', expResult)
+    fs.writeFileSync(`${opt.resPath}/result.json`, JSON.stringify(expResult, null, 2))
 
     // parse world information
 
