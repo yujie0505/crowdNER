@@ -1,8 +1,9 @@
 const fs = require('fs')
 const google = require('edit-google-spreadsheet')
 
-const opt = {
+const opt = Object.assign({
   debug : true,
+  entity: ['event', 'protein'],
   google : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
   resPath : '../res',
   srcPath : '../src',
@@ -24,7 +25,13 @@ const opt = {
     abbr    : 'PPI',
     content : 'Protein-Protein Interaction'
   }
-}
+}, require('node-getopt').create([
+  ['c', 'minConf=ARG'         , 'minimum confidence'],
+  ['e', 'eventThreshold=ARG'  , 'threshold of likelihood between event entity and each word'],
+  ['h', 'help'                , 'show this help'],
+  ['p', 'proteinThreshold=ARG', 'threshold of likelihood between protein entity and each word'],
+  ['s', 'minSupp=ARG'         , 'minimum support'],
+]).bindHelp('\nUsage: node src2res.js\n[[OPTIONS]]\n').parseSystem().options)
 
 // load src
 
@@ -37,6 +44,9 @@ const src = {
 
 // utility
 
+const avg = arr => arr.reduce((sum, val) => { return sum + val }, 0) / arr.length
+
+const labeledStc = {}
 const parseLog = ($src, res) => {
   for (let srcID of src[$src]) {
 
@@ -50,15 +60,31 @@ const parseLog = ($src, res) => {
 
       if ('submit' !== log.action) continue
 
+      // parse sunmit logs
+
       let boxName = `box${log.box}`
       let box = res[boxName] ? res[boxName] : res[boxName] = {}
       let labeler = box[srcID] ? box[srcID] : box[srcID] = {}
       let article = labeler[log.pmid] ? labeler[log.pmid] : labeler[log.pmid] = {}
       article[log.stcid] = {
-        event       : log.event,
-        protein     : log.protein,
-        elapsedTime : elapsedTime
+        elapsedTime : elapsedTime,
+        event: {},
+        protein: {}
       }
+
+      for (let e of opt.entity)
+        for (let i of log[e])
+          article[log.stcid][e][i] = true
+
+      if ('ans' === $src) continue
+
+      // statistic of sentences labeled by subjects
+
+      box = labeledStc[boxName] ? labeledStc[boxName] : labeledStc[boxName] = {}
+      let art = box[log.pmid] ? box[log.pmid] : box[log.pmid] = {}
+      let stc = art[log.stcid] ? art[log.stcid] : art[log.stcid] = { elapsedTime: [], labeledCount: 0 }
+      if (elapsedTime) stc.elapsedTime.push(elapsedTime)
+      stc.labeledCount++
     }
   }
 }
@@ -145,5 +171,40 @@ google.load({
       }
     }
     fs.writeFileSync('../res/world.json', JSON.stringify(world, null, 2))
+
+    // comparison: 'time required to finish a submit' vs. 'sentence length' vs. 'sentence level'
+
+    google.load({
+      debug         : opt.debug,
+      oauth2        : opt.google.oauth2,
+      spreadsheetId : opt.google.spreadsheet,
+      worksheetId   : opt.google.worksheet.avgSubmitTime
+    }, (err, sheet) => {
+      if (err) throw err
+
+      sheet.receive((err, rows, info) => {
+        if (err) throw err
+
+        let statistic = {}, rowIndex = info.nextRow
+        for (let boxName in labeledStc) {
+          for (let pmid in labeledStc[boxName]) {
+            for (let stcid in labeledStc[boxName][pmid]) {
+              if (opt.minSupp > labeledStc[boxName][pmid][stcid].labeledCount) continue
+
+              statistic[rowIndex++] = {
+                [opt.worksheetCol.avgSubmitTime.avgTime]: avg(labeledStc[boxName][pmid][stcid].elapsedTime),
+                [opt.worksheetCol.avgSubmitTime.stcLength]: src.articles[pmid].word[stcid].length,
+                [opt.worksheetCol.avgSubmitTime.stcValue]: src.articles[pmid].value[stcid]
+              }
+            }
+          }
+        }
+
+        sheet.add(statistic)
+        sheet.send(err => {
+          if (err) throw err
+        })
+      })
+    })
   })
 })
