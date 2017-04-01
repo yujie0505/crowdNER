@@ -29,6 +29,7 @@ const opt = {
 // load src
 
 const src = {
+  articles: {},
   ans : fs.readdirSync(`${opt.srcPath}/ans/`),
   box : fs.readdirSync(`${opt.srcPath}/box/`).filter(it => it.match(/^box\d+$/)),
   exp : fs.readdirSync(`${opt.srcPath}/exp/`)
@@ -38,8 +39,14 @@ const src = {
 
 const parseLog = ($src, res) => {
   for (let srcID of src[$src]) {
+
+    let lastSubmitTime = null, elapsedTime = 0
     for (let log of fs.readFileSync(`${opt.srcPath}/${$src}/${srcID}`, 'utf-8').split('\n').slice(0, -1)) {
       log = JSON.parse(log)
+
+      let currSubmitTime = new Date(log.time) / 1000
+      if (lastSubmitTime) elapsedTime = currSubmitTime - lastSubmitTime
+      lastSubmitTime = currSubmitTime
 
       if ('submit' !== log.action) continue
 
@@ -48,8 +55,9 @@ const parseLog = ($src, res) => {
       let labeler = box[srcID] ? box[srcID] : box[srcID] = {}
       let article = labeler[log.pmid] ? labeler[log.pmid] : labeler[log.pmid] = {}
       article[log.stcid] = {
-        event   : log.event,
-        protein : log.protein
+        event       : log.event,
+        protein     : log.protein,
+        elapsedTime : elapsedTime
       }
     }
   }
@@ -107,8 +115,10 @@ google.load({
     for (let boxName of src.box) {
       let box = world.box[`${boxName.slice(0, 1).toUpperCase()}${boxName.slice(1, -1)} ${boxName.slice(-1)}`] = { articles: {} }
 
-      for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/)))
-        box.articles[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8')).title
+      for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/))) {
+        src.articles[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8'))
+        box.articles[pmid] = src.articles[pmid].title
+      }
 
       let logs = 0, student = {}
       if (expResult[boxName]) {
@@ -119,13 +129,19 @@ google.load({
         }
       }
 
+      let boxStack = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/stack`))
+
       box.statistic = {
-        answer      : answer[boxName] ? Object.keys(answer[boxName]).length : 0,
-        article     : Object.keys(box.articles).length,
-        expLogs     : logs,
-        subject     : Object.keys(student).length,
-        twoValueStc : JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/stack`))[2].length,
-        updateTime  : new Date().toISOString().slice(0, 10).replace(/-/g, '.')
+        answers  : answer[boxName] ? Object.keys(answer[boxName]).length : 0,
+        articles : Object.keys(box.articles).length,
+        expLogs  : logs,
+        stcValue : {
+          '0': boxStack[0].length,
+          '1': boxStack[1].length,
+          '2': boxStack[2].length
+        },
+        subjects   : Object.keys(student).length,
+        updateTime : new Date().toISOString().slice(0, 10).replace(/-/g, '.')
       }
     }
     fs.writeFileSync('../res/world.json', JSON.stringify(world, null, 2))
