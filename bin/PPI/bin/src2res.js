@@ -19,7 +19,19 @@ const opt = {
       name       : 2,
       studentID  : 3
     }
+  },
+  world : {
+    abbr    : 'PPI',
+    content : 'Protein-Protein Interaction'
   }
+}
+
+// load src
+
+const src = {
+  ans : fs.readdirSync(`${opt.srcPath}/ans/`),
+  box : fs.readdirSync(`${opt.srcPath}/box/`).filter(it => it.match(/^box\d+$/)),
+  exp : fs.readdirSync(`${opt.srcPath}/exp/`)
 }
 
 // utility
@@ -43,23 +55,6 @@ const parseLog = ($src, res) => {
   }
 }
 
-// load src
-
-const src = {
-  ans : fs.readdirSync(`${opt.srcPath}/ans/`),
-  box : fs.readdirSync(`${opt.srcPath}/box/`).filter(it => it.match(/^box\d+$/)),
-  exp : fs.readdirSync(`${opt.srcPath}/exp/`)
-}
-
-const answer = {}
-const expResult = {}
-const subject = {}
-const world = {
-  abbr    : 'PPI',
-  box     : {},
-  content : 'Protein-Protein Interaction'
-}
-
 google.load({
   debug         : opt.debug,
   oauth2        : opt.google.oauth2,
@@ -75,6 +70,7 @@ google.load({
 
     // parse subject information
 
+    const subject = {}
     let idHash = {}, col = opt.worksheetCol.enroll
     for (let i in rows) {
       idHash[rows[i][col.expID]] = rows[i][col.studentID]
@@ -95,16 +91,19 @@ google.load({
 
     // parse answer logs
 
+    const answer = {}
     parseLog('ans', answer)
     fs.writeFileSync(`${opt.resPath}/answer.json`, JSON.stringify(answer, null, 2))
 
     // parse experiment logs
 
+    const expResult = {}
     parseLog('exp', expResult)
     fs.writeFileSync(`${opt.resPath}/result.json`, JSON.stringify(expResult, null, 2))
 
     // parse world information
 
+    const world = Object.assign({}, opt.world, { box: {} })
     for (let boxName of src.box) {
       let box = world.box[`${boxName.slice(0, 1).toUpperCase()}${boxName.slice(1, -1)} ${boxName.slice(-1)}`] = { articles: {} }
 
