@@ -7,11 +7,11 @@ const opt = Object.assign({
   google : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
   resPath : '../res',
   srcPath : '../src',
-  stcLevel : [0, 1, 2, 5, 7, 10], // required amount of words labeled as important to next sentence level
+  stcLevel : [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], // required amount of words labeled as important to next sentence level
   worksheetCol : {
     avgSubmitTime : {
-      stcLength : 1,
-      stcValue  : 2
+      stcInfo  : 1,
+      stcValue : 2
     },
     enroll : {
       degree     : 5,
@@ -49,16 +49,20 @@ const src = {
 
 const avg = arr => arr.reduce((sum, val) => { return sum + val }, 0) / arr.length
 
-const getLevel = (pmid, stcid) => {
+const getImportantRate = (pmid, stcid) => {
   let importantWords = 0, likelihood = src.art[pmid].likelihood
 
   for (let wid in src.art[pmid].word[stcid])
     if (parseFloat(likelihood.event[stcid][wid]) >= opt.eventThreshold || parseFloat(likelihood.protein[stcid][wid]) >= opt.proteinThreshold)
       importantWords++
 
+  return importantWords / src.art[pmid].word[stcid].length
+}
+
+const getLevel = importantRate => {
   for (let l in opt.stcLevel) {
-    if      (importantWords === opt.stcLevel[l]) return parseInt(l)
-    else if (importantWords < opt.stcLevel[l])   return parseInt(l) -1
+    if      (importantRate === opt.stcLevel[l]) return parseInt(l)
+    else if (importantRate < opt.stcLevel[l])   return parseInt(l) -1
   }
 
   return opt.stcLevel.length - 1
@@ -78,21 +82,22 @@ const parseLog = ($src, res) => {
 
       if ('submit' !== log.action) continue
 
-      // parse sunmit logs
+      // parse submit logs
 
       let boxName = `box${log.box}`
-      let box = res[boxName] ? res[boxName] : res[boxName] = {}
+      let box = res[boxName] ? res[boxName] : res[boxName] = { submits: 0 }
       let labeler = box[srcID] ? box[srcID] : box[srcID] = {}
       let article = labeler[log.pmid] ? labeler[log.pmid] : labeler[log.pmid] = {}
-      article[log.stcid] = {
+      let sentence = article[log.stcid] ? article[log.stcid] : article[log.stcid] = {
         elapsedTime : elapsedTime,
         event: {},
         protein: {}
       }
 
+      box.submits++
       for (let e of opt.entity)
         for (let i of log[e])
-          article[log.stcid][e][i] = true
+          sentence[e][i] = true
 
       if ('ans' === $src) continue
 
@@ -100,9 +105,10 @@ const parseLog = ($src, res) => {
 
       box = labeledStc[boxName] ? labeledStc[boxName] : labeledStc[boxName] = {}
       let art = box[log.pmid] ? box[log.pmid] : box[log.pmid] = {}
-      let stc = art[log.stcid] ? art[log.stcid] : art[log.stcid] = { elapsedTime: [], labeledCount: 0 }
+      let stc = art[log.stcid] ? art[log.stcid] : art[log.stcid] = { elapsedTime: [], labeler: {} }
+      if (stc.labeler[srcID]) continue // repeated labeled
       if (elapsedTime) stc.elapsedTime.push(elapsedTime)
-      stc.labeledCount++
+      stc.labeler[srcID] = true
     }
   }
 }
@@ -164,27 +170,22 @@ google.load({
         box.articles[pmid] = src.art[pmid].title
       }
 
-      let logs = 0, student = {}
-      if (expResult[boxName]) {
-        for (let expID in expResult[boxName]) {
-          student[idHash[expID]] = true
-          for (let pmid in expResult[boxName][expID])
-            logs += Object.keys(expResult[boxName][expID][pmid]).length
-        }
-      }
+      let student = {}
+      for (let expID in expResult[boxName])
+        student[idHash[expID]] = true
 
       let boxStack = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/stack`))
 
       box.statistic = {
-        answers  : answer[boxName] ? Object.keys(answer[boxName]).length : 0,
+        answers  : answer[boxName] ? Object.keys(answer[boxName]).length - 1 : 0,
         articles : Object.keys(box.articles).length,
-        expLogs  : logs,
         stcValue : {
           '0': boxStack[0].length,
           '1': boxStack[1].length,
           '2': boxStack[2].length
         },
         subjects   : Object.keys(student).length,
+        submits    : expResult[boxName] ? expResult[boxName].submits : 0,
         updateTime : new Date().toISOString().slice(0, 10).replace(/-/g, '.')
       }
     }
@@ -203,15 +204,17 @@ google.load({
       sheet.receive((err, rows, info) => {
         if (err) throw err
 
-        let statistic = {}, rowIndex = info.nextRow
+        let rowIndex = info.nextRow, statistic = {}
         for (let boxName in labeledStc) {
           for (let pmid in labeledStc[boxName]) {
             for (let stcid in labeledStc[boxName][pmid]) {
-              if (opt.minSupp > labeledStc[boxName][pmid][stcid].labeledCount) continue
+              let stcSupp = labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
+              if (opt.minSupp > stcSupp) continue
 
+              let importantRate = getImportantRate(pmid, stcid)
               statistic[rowIndex++] = {
-                [opt.worksheetCol.avgSubmitTime.stcLength]: src.art[pmid].word[stcid].length,
-                [opt.worksheetCol.avgSubmitTime.stcValue + getLevel(pmid, stcid)]: avg(labeledStc[boxName][pmid][stcid].elapsedTime)
+                [opt.worksheetCol.avgSubmitTime.stcInfo]: importantRate,
+                [opt.worksheetCol.avgSubmitTime.stcValue + getLevel(importantRate)]: avg(labeledStc[boxName][pmid][stcid].elapsedTime)
               }
             }
           }
