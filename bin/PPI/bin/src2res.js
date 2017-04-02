@@ -2,16 +2,16 @@ const fs = require('fs')
 const google = require('edit-google-spreadsheet')
 
 const opt = Object.assign({
-  debug : true,
-  entity: ['event', 'protein'],
+  debug  : true,
+  entity : ['event', 'protein'],
   google : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
   resPath : '../res',
   srcPath : '../src',
+  stcLevel : [0, 1, 2, 5, 7, 10], // required amount of words labeled as important to next sentence level
   worksheetCol : {
     avgSubmitTime : {
-      avgTime   : 3,
-      stcLength : 2,
-      stcValue  : 1
+      stcLength : 1,
+      stcValue  : 2
     },
     enroll : {
       degree     : 5,
@@ -33,11 +33,14 @@ const opt = Object.assign({
   ['s', 'minSupp=ARG'         , 'minimum support'],
 ]).bindHelp('\nUsage: node src2res.js\n[[OPTIONS]]\n').parseSystem().options)
 
+opt.eventThreshold = parseFloat(opt.eventThreshold)
+opt.proteinThreshold = parseFloat(opt.proteinThreshold)
+
 // load src
 
 const src = {
-  articles: {},
   ans : fs.readdirSync(`${opt.srcPath}/ans/`),
+  art : {},
   box : fs.readdirSync(`${opt.srcPath}/box/`).filter(it => it.match(/^box\d+$/)),
   exp : fs.readdirSync(`${opt.srcPath}/exp/`)
 }
@@ -45,6 +48,21 @@ const src = {
 // utility
 
 const avg = arr => arr.reduce((sum, val) => { return sum + val }, 0) / arr.length
+
+const getLevel = (pmid, stcid) => {
+  let importantWords = 0, likelihood = src.art[pmid].likelihood
+
+  for (let wid in src.art[pmid].word[stcid])
+    if (parseFloat(likelihood.event[stcid][wid]) >= opt.eventThreshold || parseFloat(likelihood.protein[stcid][wid]) >= opt.proteinThreshold)
+      importantWords++
+
+  for (let l in opt.stcLevel) {
+    if      (importantWords === opt.stcLevel[l]) return parseInt(l)
+    else if (importantWords < opt.stcLevel[l])   return parseInt(l) -1
+  }
+
+  return opt.stcLevel.length - 1
+}
 
 const labeledStc = {}
 const parseLog = ($src, res) => {
@@ -104,8 +122,8 @@ google.load({
 
     // parse subject information
 
-    const subject = {}
-    let idHash = {}, col = opt.worksheetCol.enroll
+    const idHash = {}, subject = {}
+    let col = opt.worksheetCol.enroll
     for (let i in rows) {
       idHash[rows[i][col.expID]] = rows[i][col.studentID]
       if (subject[rows[i][col.studentID]])
@@ -142,8 +160,8 @@ google.load({
       let box = world.box[`${boxName.slice(0, 1).toUpperCase()}${boxName.slice(1, -1)} ${boxName.slice(-1)}`] = { articles: {} }
 
       for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/))) {
-        src.articles[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8'))
-        box.articles[pmid] = src.articles[pmid].title
+        src.art[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8'))
+        box.articles[pmid] = src.art[pmid].title
       }
 
       let logs = 0, student = {}
@@ -170,9 +188,9 @@ google.load({
         updateTime : new Date().toISOString().slice(0, 10).replace(/-/g, '.')
       }
     }
-    fs.writeFileSync('../res/world.json', JSON.stringify(world, null, 2))
+    fs.writeFileSync(`${opt.resPath}/world.json`, JSON.stringify(world, null, 2))
 
-    // comparison: 'time required to finish a submit' vs. 'sentence length' vs. 'sentence level'
+    // comparison: 'time required to finish a submit' vs. 'sentence length' via different 'sentence level'
 
     google.load({
       debug         : opt.debug,
@@ -192,9 +210,8 @@ google.load({
               if (opt.minSupp > labeledStc[boxName][pmid][stcid].labeledCount) continue
 
               statistic[rowIndex++] = {
-                [opt.worksheetCol.avgSubmitTime.avgTime]: avg(labeledStc[boxName][pmid][stcid].elapsedTime),
-                [opt.worksheetCol.avgSubmitTime.stcLength]: src.articles[pmid].word[stcid].length,
-                [opt.worksheetCol.avgSubmitTime.stcValue]: src.articles[pmid].value[stcid]
+                [opt.worksheetCol.avgSubmitTime.stcLength]: src.art[pmid].word[stcid].length,
+                [opt.worksheetCol.avgSubmitTime.stcValue + getLevel(pmid, stcid)]: avg(labeledStc[boxName][pmid][stcid].elapsedTime)
               }
             }
           }
