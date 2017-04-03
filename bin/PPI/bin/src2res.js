@@ -9,9 +9,13 @@ const opt = Object.assign({
   srcPath : '../src',
   stcLevel : [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], // required amount of words labeled as important to next sentence level
   worksheetCol : {
+    avgLabelRate: {
+      stcInfo  : 1,
+      stcLevel : 2
+    },
     avgSubmitTime : {
       stcInfo  : 1,
-      stcValue : 2
+      stcLevel : 2
     },
     enroll : {
       degree     : 5,
@@ -27,6 +31,7 @@ const opt = Object.assign({
   }
 }, require('node-getopt').create([
   ['c', 'minConf=ARG'         , 'minimum confidence'],
+  ['d', 'diagram=ARG'         , 'send data points to google spreadsheet for drawing Scatter plot'],
   ['e', 'eventThreshold=ARG'  , 'threshold of likelihood between event entity and each word'],
   ['h', 'help'                , 'show this help'],
   ['p', 'proteinThreshold=ARG', 'threshold of likelihood between protein entity and each word'],
@@ -193,38 +198,60 @@ google.load({
 
     // comparison: 'time required to finish a submit' vs. 'sentence length' via different 'sentence level'
 
-    google.load({
-      debug         : opt.debug,
-      oauth2        : opt.google.oauth2,
-      spreadsheetId : opt.google.spreadsheet,
-      worksheetId   : opt.google.worksheet.avgSubmitTime
-    }, (err, sheet) => {
-      if (err) throw err
+    switch (opt.diagram) {
+      case 'avgSubmitTime':
+        console.log('avgSubmitTime')
+        google.load({
+          debug         : opt.debug,
+          oauth2        : opt.google.oauth2,
+          spreadsheetId : opt.google.spreadsheet,
+          worksheetId   : opt.google.worksheet.avgSubmitTime
+        }, (err, sheet) => {
+          if (err) throw err
 
-      sheet.receive((err, rows, info) => {
-        if (err) throw err
+          sheet.receive((err, rows, info) => {
+            if (err) throw err
 
-        let rowIndex = info.nextRow, statistic = {}
-        for (let boxName in labeledStc) {
-          for (let pmid in labeledStc[boxName]) {
-            for (let stcid in labeledStc[boxName][pmid]) {
-              let stcSupp = labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
-              if (opt.minSupp > stcSupp) continue
+            let rowIndex = info.nextRow, statistic = {}
+            for (let boxName in labeledStc) {
+              for (let pmid in labeledStc[boxName]) {
+                for (let stcid in labeledStc[boxName][pmid]) {
+                  let stcSupp = labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
+                  if (opt.minSupp > stcSupp) continue
 
-              let importantRate = getImportantRate(pmid, stcid)
-              statistic[rowIndex++] = {
-                [opt.worksheetCol.avgSubmitTime.stcInfo]: importantRate,
-                [opt.worksheetCol.avgSubmitTime.stcValue + getLevel(importantRate)]: avg(labeledStc[boxName][pmid][stcid].elapsedTime)
+                  let importantRate = getImportantRate(pmid, stcid)
+                  statistic[rowIndex++] = {
+                    [opt.worksheetCol.avgSubmitTime.stcInfo]: importantRate,
+                    [opt.worksheetCol.avgSubmitTime.stcLevel + getLevel(importantRate)]: avg(labeledStc[boxName][pmid][stcid].elapsedTime)
+                  }
+                }
               }
             }
-          }
-        }
 
-        sheet.add(statistic)
-        sheet.send(err => {
-          if (err) throw err
+            sheet.add(statistic)
+            sheet.send(err => {
+              if (err) throw err
+            })
+          })
         })
-      })
-    })
+        break
+
+      case 'avgLabelRate':
+        google.load({
+          debug         : opt.debug,
+          oauth2        : opt.google.oauth2,
+          spreadsheetId : opt.google.spreadsheet,
+          worksheetId   : opt.google.worksheet.avgLabelRate
+        }, (err, sheet) => {
+          if (err) throw err
+
+          sheet.receive((err, rows, info) => {
+            if (err) throw err
+
+            console.log(info)
+          })
+        })
+        break
+    }
   })
 })
