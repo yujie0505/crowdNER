@@ -52,17 +52,9 @@ const src = {
 
 // utility
 
-const avg = arr => arr.reduce((sum, val) => { return sum + val }, 0) / arr.length
+const ariMean = arr => arr.reduce((sum, val) => { return sum + val }, 0) / arr.length
 
-const getImportantRate = (pmid, stcid) => {
-  let importantWords = 0, likelihood = src.art[pmid].likelihood
-
-  for (let wid in src.art[pmid].word[stcid])
-    if (parseFloat(likelihood.event[stcid][wid]) >= opt.eventThreshold || parseFloat(likelihood.protein[stcid][wid]) >= opt.proteinThreshold)
-      importantWords++
-
-  return importantWords / src.art[pmid].word[stcid].length
-}
+const geoMean = arr => Math.pow(arr.reduce((pro, val) => { return pro * val }, 1), 1 / arr.length)
 
 const getLevel = importantRate => {
   for (let l in opt.stcLevel) {
@@ -200,7 +192,6 @@ google.load({
 
     switch (opt.diagram) {
       case 'avgSubmitTime':
-        console.log('avgSubmitTime')
         google.load({
           debug         : opt.debug,
           oauth2        : opt.google.oauth2,
@@ -219,10 +210,16 @@ google.load({
                   let stcSupp = labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
                   if (opt.minSupp > stcSupp) continue
 
-                  let importantRate = getImportantRate(pmid, stcid)
+                  let importantWords = 0, likelihood = src.art[pmid].likelihood
+
+                  for (let wid in src.art[pmid].word[stcid])
+                    if (parseFloat(likelihood.event[stcid][wid]) >= opt.eventThreshold || parseFloat(likelihood.protein[stcid][wid]) >= opt.proteinThreshold)
+                      importantWords++
+
+                  let importantRate = importantWords / src.art[pmid].word[stcid].length
                   statistic[rowIndex++] = {
                     [opt.worksheetCol.avgSubmitTime.stcInfo]: importantRate,
-                    [opt.worksheetCol.avgSubmitTime.stcLevel + getLevel(importantRate)]: avg(labeledStc[boxName][pmid][stcid].elapsedTime)
+                    [opt.worksheetCol.avgSubmitTime.stcLevel + getLevel(importantRate)]: ariMean(labeledStc[boxName][pmid][stcid].elapsedTime)
                   }
                 }
               }
@@ -248,7 +245,42 @@ google.load({
           sheet.receive((err, rows, info) => {
             if (err) throw err
 
-            console.log(info)
+            let rowIndex = info.nextRow, statistic = {}
+            for (let boxName in labeledStc) {
+              for (let pmid in labeledStc[boxName]) {
+                for (let stcid in labeledStc[boxName][pmid]) {
+                  let stcSupp = labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
+                  if (opt.minSupp > stcSupp) continue
+
+                  let importantWords = {}, labelRate = []
+                  for (let wid in src.art[pmid].word[stcid]) {
+                    for (let entity of opt.entity) {
+                      if (parseFloat(src.art[pmid].likelihood[entity][stcid][wid]) >= opt[`${entity}Threshold`]) {
+                        importantWords[wid] = 0
+
+                        for (let expID in labeledStc[boxName][pmid][stcid].labeler)
+                          if (expResult[boxName][expID][pmid][stcid][entity][wid])
+                            importantWords[wid]++
+
+                        labelRate.push((importantWords[wid] ? importantWords[wid] : 1) / stcSupp)
+                      }
+                    }
+                  }
+
+                  let importantRate = Object.keys(importantWords).length / src.art[pmid].word[stcid].length
+
+                  statistic[rowIndex++] = {
+                    [opt.worksheetCol.avgLabelRate.stcInfo]: importantRate,
+                    [opt.worksheetCol.avgLabelRate.stcLevel + getLevel(importantRate)]: labelRate.length ? geoMean(labelRate) : 0
+                  }
+                }
+              }
+            }
+
+            sheet.add(statistic)
+            sheet.send(err => {
+              if (err) throw err
+            })
           })
         })
         break
