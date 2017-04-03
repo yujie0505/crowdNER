@@ -1,22 +1,13 @@
 const fs = require('fs')
 const google = require('edit-google-spreadsheet')
 
-const opt = Object.assign({
+const opt = {
   debug  : true,
   entity : ['event', 'protein'],
   google : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
   resPath : '../res',
   srcPath : '../src',
-  stcLevel : [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], // required amount of words labeled as important to next sentence level
   worksheetCol : {
-    avgLabelRate: {
-      stcInfo  : 1,
-      stcLevel : 2
-    },
-    avgSubmitTime : {
-      stcInfo  : 1,
-      stcLevel : 2
-    },
     enroll : {
       degree     : 5,
       department : 4,
@@ -29,41 +20,17 @@ const opt = Object.assign({
     abbr    : 'PPI',
     content : 'Protein-Protein Interaction'
   }
-}, require('node-getopt').create([
-  ['c', 'minConf=ARG'         , 'minimum confidence'],
-  ['d', 'diagram=ARG'         , 'send data points to google spreadsheet for drawing Scatter plot'],
-  ['e', 'eventThreshold=ARG'  , 'threshold of likelihood between event entity and each word'],
-  ['h', 'help'                , 'show this help'],
-  ['p', 'proteinThreshold=ARG', 'threshold of likelihood between protein entity and each word'],
-  ['s', 'minSupp=ARG'         , 'minimum support'],
-]).bindHelp('\nUsage: node src2res.js\n[[OPTIONS]]\n').parseSystem().options)
-
-opt.eventThreshold = parseFloat(opt.eventThreshold)
-opt.proteinThreshold = parseFloat(opt.proteinThreshold)
+}
 
 // load src
 
 const src = {
   ans : fs.readdirSync(`${opt.srcPath}/ans/`),
-  art : {},
   box : fs.readdirSync(`${opt.srcPath}/box/`).filter(it => it.match(/^box\d+$/)),
   exp : fs.readdirSync(`${opt.srcPath}/exp/`)
 }
 
 // utility
-
-const ariMean = arr => arr.reduce((sum, val) => { return sum + val }, 0) / arr.length
-
-const geoMean = arr => Math.pow(arr.reduce((pro, val) => { return pro * val }, 1), 1 / arr.length)
-
-const getLevel = importantRate => {
-  for (let l in opt.stcLevel) {
-    if      (importantRate === opt.stcLevel[l]) return parseInt(l)
-    else if (importantRate < opt.stcLevel[l])   return parseInt(l) -1
-  }
-
-  return opt.stcLevel.length - 1
-}
 
 const labeledStc = {}
 const parseLog = ($src, res) => {
@@ -87,8 +54,8 @@ const parseLog = ($src, res) => {
       let article = labeler[log.pmid] ? labeler[log.pmid] : labeler[log.pmid] = {}
       let sentence = article[log.stcid] ? article[log.stcid] : article[log.stcid] = {
         elapsedTime : elapsedTime,
-        event: {},
-        protein: {}
+        event : {},
+        protein : {}
       }
 
       box.submits++
@@ -162,10 +129,8 @@ google.load({
     for (let boxName of src.box) {
       let box = world.box[`${boxName.slice(0, 1).toUpperCase()}${boxName.slice(1, -1)} ${boxName.slice(-1)}`] = { articles: {} }
 
-      for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/))) {
-        src.art[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8'))
-        box.articles[pmid] = src.art[pmid].title
-      }
+      for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/)))
+        box.articles[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8')).title
 
       let student = {}
       for (let expID in expResult[boxName])
@@ -177,9 +142,9 @@ google.load({
         answers  : answer[boxName] ? Object.keys(answer[boxName]).length - 1 : 0,
         articles : Object.keys(box.articles).length,
         stcValue : {
-          '0': boxStack[0].length,
-          '1': boxStack[1].length,
-          '2': boxStack[2].length
+          '0' : boxStack[0].length,
+          '1' : boxStack[1].length,
+          '2' : boxStack[2].length
         },
         subjects   : Object.keys(student).length,
         submits    : expResult[boxName] ? expResult[boxName].submits : 0,
@@ -188,102 +153,12 @@ google.load({
     }
     fs.writeFileSync(`${opt.resPath}/world.json`, JSON.stringify(world, null, 2))
 
-    // comparison: 'time required to finish a submit' vs. 'sentence length' via different 'sentence level'
+    // record labeled sentence
 
-    switch (opt.diagram) {
-      case 'avgSubmitTime':
-        google.load({
-          debug         : opt.debug,
-          oauth2        : opt.google.oauth2,
-          spreadsheetId : opt.google.spreadsheet,
-          worksheetId   : opt.google.worksheet.avgSubmitTime
-        }, (err, sheet) => {
-          if (err) throw err
-
-          sheet.receive((err, rows, info) => {
-            if (err) throw err
-
-            let rowIndex = info.nextRow, statistic = {}
-            for (let boxName in labeledStc) {
-              for (let pmid in labeledStc[boxName]) {
-                for (let stcid in labeledStc[boxName][pmid]) {
-                  let stcSupp = labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
-                  if (opt.minSupp > stcSupp) continue
-
-                  let importantWords = 0, likelihood = src.art[pmid].likelihood
-
-                  for (let wid in src.art[pmid].word[stcid])
-                    if (parseFloat(likelihood.event[stcid][wid]) >= opt.eventThreshold || parseFloat(likelihood.protein[stcid][wid]) >= opt.proteinThreshold)
-                      importantWords++
-
-                  let importantRate = importantWords / src.art[pmid].word[stcid].length
-                  statistic[rowIndex++] = {
-                    [opt.worksheetCol.avgSubmitTime.stcInfo]: importantRate,
-                    [opt.worksheetCol.avgSubmitTime.stcLevel + getLevel(importantRate)]: ariMean(labeledStc[boxName][pmid][stcid].elapsedTime)
-                  }
-                }
-              }
-            }
-
-            sheet.add(statistic)
-            sheet.send(err => {
-              if (err) throw err
-            })
-          })
-        })
-        break
-
-      case 'avgLabelRate':
-        google.load({
-          debug         : opt.debug,
-          oauth2        : opt.google.oauth2,
-          spreadsheetId : opt.google.spreadsheet,
-          worksheetId   : opt.google.worksheet.avgLabelRate
-        }, (err, sheet) => {
-          if (err) throw err
-
-          sheet.receive((err, rows, info) => {
-            if (err) throw err
-
-            let rowIndex = info.nextRow, statistic = {}
-            for (let boxName in labeledStc) {
-              for (let pmid in labeledStc[boxName]) {
-                for (let stcid in labeledStc[boxName][pmid]) {
-                  let stcSupp = labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
-                  if (opt.minSupp > stcSupp) continue
-
-                  let importantWords = {}, labelRate = []
-                  for (let wid in src.art[pmid].word[stcid]) {
-                    for (let entity of opt.entity) {
-                      if (parseFloat(src.art[pmid].likelihood[entity][stcid][wid]) >= opt[`${entity}Threshold`]) {
-                        importantWords[wid] = 0
-
-                        for (let expID in labeledStc[boxName][pmid][stcid].labeler)
-                          if (expResult[boxName][expID][pmid][stcid][entity][wid])
-                            importantWords[wid]++
-
-                        labelRate.push((importantWords[wid] ? importantWords[wid] : 1) / stcSupp)
-                      }
-                    }
-                  }
-
-                  let importantRate = Object.keys(importantWords).length / src.art[pmid].word[stcid].length
-
-                  statistic[rowIndex++] = {
-                    [opt.worksheetCol.avgLabelRate.stcInfo]: importantRate,
-                    [opt.worksheetCol.avgLabelRate.stcLevel + getLevel(importantRate)]: labelRate.length ? geoMean(labelRate) : 0
-                  }
-                }
-              }
-            }
-
-            sheet.add(statistic)
-            sheet.send(err => {
-              if (err) throw err
-            })
-          })
-        })
-        break
-    }
+    for (let boxName in labeledStc)
+      for (let pmid in labeledStc[boxName])
+        for (let stcid in labeledStc[boxName][pmid])
+          labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
+    fs.writeFileSync(`${opt.resPath}/labeledStc.json`, JSON.stringify(labeledStc, null, 2))
   })
 })
