@@ -2,9 +2,10 @@ const fs = require('fs')
 const google = require('edit-google-spreadsheet')
 
 const opt = Object.assign({
-  debug  : true,
-  entity : ['event', 'protein'],
-  google : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
+  debug   : true,
+  entity  : ['event', 'protein'],
+  google  : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
+  maxSupp : 20,
   resPath : '../res',
   srcPath : '../src',
   stcLevel : [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], // required amount of words labeled as important to next sentence level
@@ -12,6 +13,24 @@ const opt = Object.assign({
     avgSubmitTime : {
       stcInfo  : 1,
       stcLevel : 2
+    },
+    verification : {
+      FN        : 8,
+      FP        : 7,
+      FScore    : 12,
+      minSupp   : 1,
+      precision : 11,
+      recall    : 10,
+      stcInfo   : {
+        total : 2,
+        value : {
+          '0' : 3,
+          '1' : 4,
+          '2' : 5
+        }
+      },
+      TN        : 9,
+      TP        : 6
     },
     wordLabeled : {
       eveLikelihood : {
@@ -37,9 +56,11 @@ opt.proteinThreshold = parseFloat(opt.proteinThreshold)
 // load src
 
 const src = {
+  answers    : JSON.parse(fs.readFileSync(`${opt.resPath}/answer.json`, 'utf-8')),
   articles   : {},
   expResult  : JSON.parse(fs.readFileSync(`${opt.resPath}/result.json`, 'utf-8')),
-  labeledStc : JSON.parse(fs.readFileSync(`${opt.resPath}/labeledStc.json`, 'utf-8'))
+  labeledStc : JSON.parse(fs.readFileSync(`${opt.resPath}/labeledStc.json`, 'utf-8')),
+  stcValue   : JSON.parse(fs.readFileSync(`${opt.resPath}/stcValue.json`, 'utf-8'))
 }
 
 for (let boxName in src.labeledStc)
@@ -142,6 +163,84 @@ switch (opt.worksheet) {
                 }
               }
             }
+          }
+        }
+
+        sheet.add(statistic)
+        sheet.send(err => {
+          if (err) throw err
+        })
+      })
+    })
+    break
+
+  case 'verification' :
+    google.load({
+      debug         : opt.debug,
+      oauth2        : opt.google.oauth2,
+      spreadsheetId : opt.google.spreadsheet,
+      worksheetId   : opt.google.worksheet.verification
+    }, (err, sheet) => {
+      if (err) throw err
+
+      sheet.receive((err, rows, info) => {
+        if (err) throw err
+
+        let rowIndex = info.nextRow, statistic = {}
+        for (let minSupp = 1; minSupp <= opt.maxSupp; minSupp++) {
+          let result = {
+            FN : 0,
+            FP : 0,
+            stcInfo : {
+              total : 0,
+              value : {
+                '0' : 0,
+                '1' : 0,
+                '2' : 0
+              }
+            },
+            TN : 0,
+            TP : 0
+          }
+
+          for (let pmid in src.answers.box1.tseng) { //-! only take box1 in consideration and answers from prof. Tseng
+            for (let stcid in src.answers.box1.tseng[pmid]) {
+              let _answerStc = src.answers.box1.tseng[pmid][stcid], _labeledStc = src.labeledStc.box1[pmid][stcid]
+
+              if (!_labeledStc || _labeledStc.supp < minSupp) continue
+
+              result.stcInfo.total++
+              result.stcInfo.value[`${src.stcValue.box1[pmid][stcid]}`]++
+
+              for (let wid in src.articles[pmid].word[stcid]) {
+                if (_answerStc.protein[wid]) {
+                  if (_labeledStc.labels[wid] && (opt.minConf <= _labeledStc.labels[wid].protein / _labeledStc.supp)) result.TP++
+                  else result.FN++
+                }
+                else {
+                  if (_labeledStc.labels[wid] && (opt.minConf <= _labeledStc.labels[wid].protein / _labeledStc.supp)) result.FP++
+                  else result.TN++
+                }
+              }
+            }
+          }
+
+          result.precision = result.TP / (result.TP + result.FP)
+          result.recall = result.TP / (result.TP + result.FN)
+
+          statistic[rowIndex++] = {
+            [opt.worksheetCol.verification.FN]: result.FN,
+            [opt.worksheetCol.verification.FP]: result.FP,
+            [opt.worksheetCol.verification.FScore]: 2 * result.precision * result.recall / (result.precision + result.recall),
+            [opt.worksheetCol.verification.minSupp]: minSupp,
+            [opt.worksheetCol.verification.precision]: result.precision,
+            [opt.worksheetCol.verification.recall]: result.recall,
+            [opt.worksheetCol.verification.stcInfo.total]: result.stcInfo.total,
+            [opt.worksheetCol.verification.stcInfo.value['0']]: result.stcInfo.value['0'],
+            [opt.worksheetCol.verification.stcInfo.value['1']]: result.stcInfo.value['1'],
+            [opt.worksheetCol.verification.stcInfo.value['2']]: result.stcInfo.value['2'],
+            [opt.worksheetCol.verification.TN]: result.TN,
+            [opt.worksheetCol.verification.TP]: result.TP
           }
         }
 
