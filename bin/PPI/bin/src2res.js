@@ -125,7 +125,7 @@ google.load({
 
     // parse world information
 
-    const world = Object.assign({}, opt.world, { box: {} })
+    const stcValue = {}, world = Object.assign({}, opt.world, { box: {} })
     for (let boxName of src.box) {
       let box = world.box[`${boxName.slice(0, 1).toUpperCase()}${boxName.slice(1, -1)} ${boxName.slice(-1)}`] = { articles: {} }
 
@@ -137,6 +137,16 @@ google.load({
         student[idHash[expID]] = true
 
       let boxStack = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/stack`))
+
+      // parse sentence value
+
+      stcValue[boxName] = {}
+      for (let val in boxStack) {
+        for (let stc of boxStack[val]) {
+          let art = stcValue[boxName][stc[0]] ? stcValue[boxName][stc[0]] : stcValue[boxName][stc[0]] = {}
+          art[stc[1]] = parseInt(val)
+        }
+      }
 
       box.statistic = {
         answers  : answer[boxName] ? Object.keys(answer[boxName]).length - 1 : 0,
@@ -152,6 +162,7 @@ google.load({
       }
     }
     fs.writeFileSync(`${opt.resPath}/world.json`, JSON.stringify(world, null, 2))
+    fs.writeFileSync(`${opt.resPath}/stcValue.json`, JSON.stringify(stcValue, null, 2))
 
     // record labeled sentence
 
