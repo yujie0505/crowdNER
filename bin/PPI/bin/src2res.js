@@ -169,8 +169,6 @@ google.load({
     for (let boxName in labeledStc) {
       for (let pmid in labeledStc[boxName]) {
         for (let stcid in labeledStc[boxName][pmid]) {
-          labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
-
           let labels = labeledStc[boxName][pmid][stcid].labels = {}
           for (let expID in labeledStc[boxName][pmid][stcid].labeler) {
             for (let entity of opt.entity) {
@@ -180,6 +178,8 @@ google.load({
               }
             }
           }
+
+          labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
         }
       }
     }
