@@ -166,10 +166,23 @@ google.load({
 
     // record labeled sentence
 
-    for (let boxName in labeledStc)
-      for (let pmid in labeledStc[boxName])
-        for (let stcid in labeledStc[boxName][pmid])
+    for (let boxName in labeledStc) {
+      for (let pmid in labeledStc[boxName]) {
+        for (let stcid in labeledStc[boxName][pmid]) {
           labeledStc[boxName][pmid][stcid].supp = Object.keys(labeledStc[boxName][pmid][stcid].labeler).length
+
+          let labels = labeledStc[boxName][pmid][stcid].labels = {}
+          for (let expID in labeledStc[boxName][pmid][stcid].labeler) {
+            for (let entity of opt.entity) {
+              for (let wid in expResult[boxName][expID][pmid][stcid][entity]) {
+                let wordLabel = labels[wid] ? labels[wid] : labels[wid] = { event: 0, protein: 0 }
+                wordLabel[entity]++
+              }
+            }
+          }
+        }
+      }
+    }
     fs.writeFileSync(`${opt.resPath}/labeledStc.json`, JSON.stringify(labeledStc, null, 2))
   })
 })
