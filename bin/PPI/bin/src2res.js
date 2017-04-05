@@ -5,8 +5,10 @@ const opt = {
   debug  : true,
   entity : ['event', 'protein'],
   google : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
+  minWordFreq : 2,
   resPath : '../res',
   srcPath : '../src',
+  topWords : 30,
   worksheetCol : {
     enroll : {
       degree     : 5,
@@ -26,6 +28,7 @@ const opt = {
 
 const src = {
   ans : fs.readdirSync(`${opt.srcPath}/ans/`),
+  art : {},
   box : fs.readdirSync(`${opt.srcPath}/box/`).filter(it => it.match(/^box\d+$/)),
   exp : fs.readdirSync(`${opt.srcPath}/exp/`)
 }
@@ -128,9 +131,12 @@ google.load({
     const stcValue = {}, world = Object.assign({}, opt.world, { box: {} })
     for (let boxName of src.box) {
       let box = world.box[`${boxName.slice(0, 1).toUpperCase()}${boxName.slice(1, -1)} ${boxName.slice(-1)}`] = { articles: {} }
+      src.art[boxName] = {}
 
-      for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/)))
-        box.articles[pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8')).title
+      for (let pmid of fs.readdirSync(`${opt.srcPath}/box/${boxName}`).filter(it => it.match(/\d+/))) {
+        src.art[boxName][pmid] = JSON.parse(fs.readFileSync(`${opt.srcPath}/box/${boxName}/${pmid}`, 'utf-8'))
+        box.articles[pmid] = src.art[boxName][pmid].title
+      }
 
       let student = {}
       for (let expID in expResult[boxName])
@@ -184,5 +190,33 @@ google.load({
       }
     }
     fs.writeFileSync(`${opt.resPath}/labeledStc.json`, JSON.stringify(labeledStc, null, 2))
+
+    // parse top frequent words
+
+    const topFreqWords = {}
+    for (let boxName in src.art) {
+      topFreqWords[boxName] = {}
+
+      for (let pmid in src.art[boxName]) {
+        let likelihood = src.art[boxName][pmid].likelihood, words = {}
+        topFreqWords[boxName][pmid] = []
+
+        for (let stcid in src.art[boxName][pmid].word) {
+          for (let wid in src.art[boxName][pmid].word[stcid]) {
+            if (0 === parseInt(likelihood.event[stcid][wid]) && 0 === parseInt(likelihood.protein[stcid][wid])) continue // stop words
+
+            let word = words[src.art[boxName][pmid].word[stcid][wid]] ? words[src.art[boxName][pmid].word[stcid][wid]] : words[src.art[boxName][pmid].word[stcid][wid]] = { frequency: 0, stcid: {} }
+            word.frequency++, word.stcid[stcid] = true
+          }
+        }
+
+        for (let word of Object.keys(words).sort((a, b) => words[b].frequency - words[a].frequency).slice(0, opt.topWords)) {
+          if (words[word].frequency >= opt.minWordFreq) {
+            topFreqWords[boxName][pmid].push(Object.assign({ word: word }, words[word]))
+          }
+        }
+      }
+    }
+    fs.writeFileSync(`${opt.resPath}/topFreqWords.json`, JSON.stringify(topFreqWords, null, 2))
   })
 })
