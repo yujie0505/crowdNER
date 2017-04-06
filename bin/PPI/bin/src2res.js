@@ -203,7 +203,7 @@ google.load({
 
         for (let stcid in src.art[boxName][pmid].word) {
           for (let wid in src.art[boxName][pmid].word[stcid]) {
-            if (0 === parseInt(likelihood.event[stcid][wid]) && 0 === parseInt(likelihood.protein[stcid][wid])) continue // stop words
+            if (0 === parseFloat(likelihood.event[stcid][wid]) && 0 === parseFloat(likelihood.protein[stcid][wid])) continue // stop words
 
             let word = words[src.art[boxName][pmid].word[stcid][wid]] ? words[src.art[boxName][pmid].word[stcid][wid]] : words[src.art[boxName][pmid].word[stcid][wid]] = { frequency: 0, stcid: {} }
             word.frequency++, word.stcid[stcid] = true
@@ -211,9 +211,8 @@ google.load({
         }
 
         for (let word of Object.keys(words).sort((a, b) => words[b].frequency - words[a].frequency).slice(0, opt.topWords)) {
-          if (words[word].frequency >= opt.minWordFreq) {
-            topFreqWords[boxName][pmid].push(Object.assign({ word: word }, words[word]))
-          }
+          if (words[word].frequency < opt.minWordFreq) continue
+          topFreqWords[boxName][pmid].push(Object.assign({ word: word }, words[word]))
         }
       }
     }
