@@ -110,7 +110,7 @@ google.load({
         }
       }
     }
-    fs.writeFileSync(`${opt.resPath}/subject.json`, JSON.stringify(subject, null, 2))
+    fs.writeFileSync(`${opt.resPath}/world/subject.json`, JSON.stringify(subject, null, 2))
 
     // parse answer logs
 
@@ -165,8 +165,8 @@ google.load({
         updateTime : new Date().toISOString().slice(0, 10).replace(/-/g, '.')
       }
     }
-    fs.writeFileSync(`${opt.resPath}/world.json`, JSON.stringify(world, null, 2))
-    fs.writeFileSync(`${opt.resPath}/stcValue.json`, JSON.stringify(stcValue, null, 2))
+    fs.writeFileSync(`${opt.resPath}/world/world.json`, JSON.stringify(world, null, 2))
+    fs.writeFileSync(`${opt.resPath}/world/stcValue.json`, JSON.stringify(stcValue, null, 2))
 
     // record labeled sentence
 
@@ -187,7 +187,7 @@ google.load({
         }
       }
     }
-    fs.writeFileSync(`${opt.resPath}/labeledStc.json`, JSON.stringify(labeledStc, null, 2))
+    fs.writeFileSync(`${opt.resPath}/world/labeledStc.json`, JSON.stringify(labeledStc, null, 2))
 
     // parse top frequent words
 
@@ -213,6 +213,6 @@ google.load({
         }
       }
     }
-    fs.writeFileSync(`${opt.resPath}/wordsFreq.json`, JSON.stringify(topFreqWords, null, 2))
+    fs.writeFileSync(`${opt.resPath}/world/wordsFreq.json`, JSON.stringify(topFreqWords, null, 2))
   })
 })
