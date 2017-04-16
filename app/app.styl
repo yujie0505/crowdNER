@@ -96,9 +96,32 @@ body
     color greyDark
     padding 1rem
 
+  .article
+    height 71%
+    padding-top .5rem
+
+    >div
+      background-color whitePure
+      height 100%
+      overflow-y scroll
+      padding 1rem
+      white-space pre-line
+
+      span
+        color black
+
+        &[data-label='exp']
+          background-color green
+
+        &[data-label='ans']
+          background-color yellow
+
+        &[data-label='exp ans']
+          background-color purple
+
   .boxInfo
     display flex
-    padding 1rem .5rem
+    padding 1rem .5rem .5rem
 
     >div
       background-color whitePure
