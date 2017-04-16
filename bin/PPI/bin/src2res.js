@@ -5,10 +5,8 @@ const opt = {
   debug  : true,
   entity : ['event', 'protein'],
   google : JSON.parse(fs.readFileSync('../../../option.json', 'utf-8')).google,
-  minWordFreq : 2,
   resPath : '../res',
   srcPath : '../src',
-  topWords : 30,
   worksheetCol : {
     enroll : {
       degree     : 5,
@@ -210,12 +208,11 @@ google.load({
           }
         }
 
-        for (let word of Object.keys(words).sort((a, b) => words[b].frequency - words[a].frequency).slice(0, opt.topWords)) {
-          if (words[word].frequency < opt.minWordFreq) continue
+        for (let word of Object.keys(words).sort((a, b) => words[b].frequency - words[a].frequency)) {
           topFreqWords[boxName][pmid].push(Object.assign({ word: word }, words[word]))
         }
       }
     }
-    fs.writeFileSync(`${opt.resPath}/topFreqWords.json`, JSON.stringify(topFreqWords, null, 2))
+    fs.writeFileSync(`${opt.resPath}/wordsFreq.json`, JSON.stringify(topFreqWords, null, 2))
   })
 })
