@@ -11,6 +11,7 @@ opt =
 <<< require \node-getopt .create [
   * [\f , \minFreq=ARG , 'set threshold of frequency of each word appearing in each article']
   * [\h , \help        , 'show this help']
+  * [\P , \parse=ARG   , 'parse checked words to different categories (NER or PPI)']
   * [\t , \topWord=ARG , 'set amount of top frequent words in each article to be extracted']
   * [\T , \top=ARG     , 'extract frequent words in each article (NER or PPI)']
 ] .bind-help '\nUsage: lsc word.ls\n[[OPTIONS]]\n' .parse-system!options
@@ -28,6 +29,8 @@ res =
 !function get-word-checked w, k, v
   return w[k] = true if true is v
   for _k, _v of v => get-word-checked w, _k, _v
+
+!function sort a, b => a.to-lower-case!locale-compare b.to-lower-case!
 
 #######################################################################################
 
@@ -85,4 +88,31 @@ if opt.top
 
     fs.write-file-sync "#{opt.path.res}/words/pending/PPI.md" md
 
-  | _ => ERR 'no corresponding word type'
+  | _ => ERR 'No corresponding input'
+
+else if opt.parse
+  switch opt.parse
+  | \NER
+    _NER = {}; Object.keys res.NER.named-entity .map -> _NER[it] = Object.keys res.NER.named-entity[it]
+    _nor = Object.keys res.nor
+
+    for words-checked in fs.readdir-sync "#{opt.path.res}/words/checked" .filter(-> /^NER/ is it)
+      for item in fs.read-file-sync "#{opt.path.res}/words/checked/#words-checked" \utf-8 .match /###.*/g
+        id = item.match /###\s(.+?)\s/ .1
+
+        if /{(.+)}/ is item => (that.1 / ', ').map -> _NER[it].push id
+        else                   _nor.push id
+
+    for category, entities of _NER
+      res.NER.named-entity[category] = {}
+      entities.sort sort .map -> res.NER.named-entity[category][it] = true
+
+    res.nor = {}; _nor.sort sort .map -> res.nor[it] = true
+
+    fs.write-file-sync "#{opt.path.res}/words/bioEntity.json" JSON.stringify res.NER, null 2
+    fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
+
+  | \PPI
+    console.log \PPI
+
+  | _ => ERR 'No corresponding input'
