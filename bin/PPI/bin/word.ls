@@ -20,12 +20,10 @@ res =
   NER: JSON.parse fs.read-file-sync "#{opt.path.res}/words/bioEntity.json" \utf-8
   nor: JSON.parse fs.read-file-sync "#{opt.path.res}/words/normalWord.json" \utf-8
   wrd: JSON.parse fs.read-file-sync "#{opt.path.res}/world/wordsFreq.json" \utf-8
-res.art = {}; Object.keys res.wrd.box1 .map -> res.art[it] = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#it" \utf-8
 
 #### utility
 
-!function ERR
-  throw it
+!function ERR => throw it
 
 !function get-word-checked w, k, v
   return w[k] = true if true is v
@@ -36,13 +34,14 @@ res.art = {}; Object.keys res.wrd.box1 .map -> res.art[it] = JSON.parse fs.read-
 if opt.top
   switch opt.top
   | \NER
-    if      !(opt.min-freq = parseInt opt.min-freq) => ERR 'error input: minimum frequency'
-    else if !(opt.top-word = parseInt opt.top-word) => ERR 'error input: amount of top words'
+    if not      (opt.min-freq = parseInt opt.min-freq) => ERR 'Error input: minimum frequency'
+    else if not (opt.top-word = parseInt opt.top-word) => ERR 'Error input: amount of top words'
 
     word-checked = {}; <[adm NER nor]>.map -> get-word-checked word-checked, null, res[it]
 
     md = 'mia NER\n===\n'
     for pmid, words of res.wrd.box1
+      art = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8
       word-counts = 0
 
       md += "\n## #pmid\n"
@@ -52,10 +51,10 @@ if opt.top
         md += "\n### #{word.word} (frequency: #{word.frequency})\n\n"
         for stcid of word.stcid
           md += '- [ ]'
-          for w, wid in res.art[pmid].word[stcid]
-            if w is word.word =>  md += "<span style='background-color: pink;'>#{word.word}</span>"
+          for w, wid in art.word[stcid]
+            if w is word.word =>  md += "<span style='background-color: pink;'>#w</span>"
             else                  md += w
-            md += res.art[pmid].nonword[stcid][wid]
+            md += art.nonword[stcid][wid]
           md += " [stcid: #stcid]\n"
         break if ++word-counts > opt.top-word
 
@@ -64,6 +63,7 @@ if opt.top
   | \PPI
     md = 'mia PPI\n===\n'
     for pmid, words of res.wrd.box1
+      art = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8
 
       md += "\n## #pmid\n"
       for i from 0 til words.length
@@ -77,10 +77,10 @@ if opt.top
             continue if not words[j].stcid[stcid]
 
             md += '- [ ]'
-            for w, wid in res.art[pmid].word[stcid]
+            for w, wid in art.word[stcid]
               if w is words[i].word or w is words[j].word => md += "<span style='background-color: pink;'>#w</span>"
               else                                           md += w
-              md += res.art[pmid].nonword[stcid][wid]
+              md += art.nonword[stcid][wid]
             md += " [stcid: #stcid]\n"
 
     fs.write-file-sync "#{opt.path.res}/words/pending/PPI.md" md
