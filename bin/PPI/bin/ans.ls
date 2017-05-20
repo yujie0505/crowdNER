@@ -9,11 +9,11 @@ opt =
     src: \../src
   top-word: 30
 <<< require \node-getopt .create [
+  * [\a , \action=ARG  , 'specify operation (eg. parse or top)']
   * [\f , \minFreq=ARG , 'set threshold of frequency of each word appearing in each article']
   * [\h , \help        , 'show this help']
-  * [\P , \parse=ARG   , 'parse checked words to different categories (NER or PPI)']
   * [\t , \topWord=ARG , 'set amount of top frequent words in each article to be extracted']
-  * [\T , \top=ARG     , 'extract frequent words in each article (NER or PPI)']
+  * [\w , \world=ARG   , 'specify world (eg. NER or PPI)']
 ] .bind-help '\nUsage: lsc word.ls\n[[OPTIONS]]\n' .parse-system!options
 
 res =
@@ -34,8 +34,61 @@ res =
 
 #######################################################################################
 
-if opt.top
-  switch opt.top
+switch opt.action
+| \parse
+  switch opt.world
+  | \NER
+    _NER = {}; Object.keys res.NER.named-entity .map -> _NER[it] = Object.keys res.NER.named-entity[it]
+    _nor = Object.keys res.nor
+
+    for words-checked in fs.readdir-sync "#{opt.path.res}/words/checked" .filter(-> /^NER/ is it)
+      for item in fs.read-file-sync "#{opt.path.res}/words/checked/#words-checked" \utf-8 .match /###.*/g
+        id = item.match /###\s(.+?)\s/ .1
+
+        if /{(.+)}/ is item => (that.1 / ', ').map -> _NER[it].push id
+        else                   _nor.push id
+
+    for category, entities of _NER
+      res.NER.named-entity[category] = {}
+      entities.sort sort .map -> res.NER.named-entity[category][it] = true
+
+    res.nor = {}; _nor.sort sort .map -> res.nor[it] = true
+
+    fs.write-file-sync "#{opt.path.res}/words/bioEntity.json" JSON.stringify res.NER, null 2
+    fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
+
+  | \PPI
+    arts = {}; gs-answer = {}; pmid = null
+    ignored-regex = "(#{Object.keys(JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8).join \|})"
+
+    for stc-checked in fs.readdir-sync "#{opt.path.res}/words/checked" .filter(-> /^PPI/ is it)
+      stc-checked = fs.read-file-sync "#{opt.path.res}/words/checked/#stc-checked" \utf-8
+      arts[pmid = that.1] = JSON.parse fs.read-file-sync "./build-ans/parse/box/#pmid" if stc-checked.match /##\s(\d+)\n/
+      ans = gs-answer[pmid] ?= {}
+
+      for stc in stc-checked.match /- \[[x\s]\].*\n/g
+        ans-stc = ans[stcid = stc.match /\[stcid:\s(\d+)\]/ .1] ?= {}
+
+        if stc is /<span style='background-color: lightblue;'>(.*?)<\/span>/
+          event-wrds = "(#{stc.match(/<span style='background-color: lightblue;'>(.*?)<\/span>/g).map(-> it = ((it - /<\/?.*?>/g) / ' ').join \|).join \|})"
+        else
+          event-wrds = ''
+
+        for word, wid in arts[pmid].word[stcid]
+          if word.match ignored-regex
+            ans-stc[wid] = 0 # ignored words
+          else if res.NER.named-entity.protein[word]
+            ans-stc[wid] = 1 # protein
+          else if event-wrds isnt '' and word.match event-wrds
+            ans-stc[wid] = 2 # event
+          else if not ans-stc[wid]
+            ans-stc[wid] = -1 # normal words
+
+    fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
+
+  | _ => ERR 'No corresponding input'
+
+| \top
   | \NER
     if not      (opt.min-freq = parseInt opt.min-freq) => ERR 'Error input: minimum frequency'
     else if not (opt.top-word = parseInt opt.top-word) => ERR 'Error input: amount of top words'
@@ -87,32 +140,5 @@ if opt.top
             md += " [stcid: #stcid]\n"
 
     fs.write-file-sync "#{opt.path.res}/words/pending/PPI.md" md
-
-  | _ => ERR 'No corresponding input'
-
-else if opt.parse
-  switch opt.parse
-  | \NER
-    _NER = {}; Object.keys res.NER.named-entity .map -> _NER[it] = Object.keys res.NER.named-entity[it]
-    _nor = Object.keys res.nor
-
-    for words-checked in fs.readdir-sync "#{opt.path.res}/words/checked" .filter(-> /^NER/ is it)
-      for item in fs.read-file-sync "#{opt.path.res}/words/checked/#words-checked" \utf-8 .match /###.*/g
-        id = item.match /###\s(.+?)\s/ .1
-
-        if /{(.+)}/ is item => (that.1 / ', ').map -> _NER[it].push id
-        else                   _nor.push id
-
-    for category, entities of _NER
-      res.NER.named-entity[category] = {}
-      entities.sort sort .map -> res.NER.named-entity[category][it] = true
-
-    res.nor = {}; _nor.sort sort .map -> res.nor[it] = true
-
-    fs.write-file-sync "#{opt.path.res}/words/bioEntity.json" JSON.stringify res.NER, null 2
-    fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
-
-  | \PPI
-    console.log \PPI
 
   | _ => ERR 'No corresponding input'
