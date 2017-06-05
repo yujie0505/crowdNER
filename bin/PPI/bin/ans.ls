@@ -65,6 +65,35 @@ switch opt.action
   fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
   fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
 
+| \stcSplit
+
+  # re-split words for each article sentence with new regex rule
+
+  special-char = JSON.parse fs.read-file-sync "#{opt.path.src}/words/specialChar.json"
+
+  for pmid in fs.readdir-sync "#{opt.path.src}/box/box1" .filter(-> /^\d+$/ is it)
+    refined-art = JSON.parse JSON.stringify (art = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8)
+    refined-art <<< nonword: [] word: []
+
+    for stc, stcid in art.context
+      if stc.match /(&#x[\da-f]{5};)/g
+        checked-symbols = {}
+
+        for symbol in that
+          continue if checked-symbols[symbol]
+
+          stc = stc.replace new RegExp(symbol, \g), special-char[symbol].character
+          checked-symbols[symbol] = true
+
+      refined-art.nonword[stcid] = []
+      refined-art.word[stcid] = []
+
+      for w, wid in stc.split /(&thinsp;|\s[-–]\s|[^\wαβγµáéκμνσΔ°–−-]+)/ .slice 0 -1
+        if wid % 2 then refined-art.nonword[stcid].push w
+        else            refined-art.word[stcid].push w
+
+    fs.write-file-sync "#{opt.path.res}/world/box/#pmid" JSON.stringify refined-art, null 2
+
 | \top
   return ERR 'Error input: amounts of top frequent words' if not (opt.max-tops = parseInt opt.max-tops)
   return ERR 'Error input: threshold of word frequency' if not (opt.min-freq = parseInt opt.min-freq)
@@ -76,7 +105,6 @@ switch opt.action
 
   for pmid, words of res.wrd.box1
     art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#pmid" \utf-8
-
     md-NER = "mia NER_#pmid\n===\n\n## #pmid\n"
     md-PPI = "mia PPI_#pmid\n===\n\n## #pmid\n"
     word-counts = 0
