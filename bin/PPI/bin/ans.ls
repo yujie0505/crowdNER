@@ -25,7 +25,7 @@ res =
 #######################################################################################
 
 switch opt.action
-| \buildAns
+| \build-ans
 
   # build answers for NER only; use option "parse" to get additional PPI answers
 
@@ -49,86 +49,7 @@ switch opt.action
 
   fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
 
-| \parse
-  gs-answer = if fs.exists-sync "#{opt.path.res}/gs-answer.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8 else box1: {}
-  ignored-entity = "(#{JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8 .join \|})"
-
-  for md in fs.readdir-sync "#{opt.path.src}/words/checked/"
-    if /^NER/ is md
-      for item in fs.read-file-sync "#{opt.path.src}/words/checked/#md" \utf-8 .match /###.*/g
-        word = item.match /###\s(.+?)\s/ .1
-        if /{(.+)}/ is item then (that.1 / ', ').map -> res.NER.named-entity[it][word] = true
-        else                     res.nor[word] = true
-
-    else if /^PPI/ is md
-      md = fs.read-file-sync "#{opt.path.src}/words/checked/#md" \utf-8
-      art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#{pmid = md.match /##\s(\d+)\n/ .1}" \utf-8
-      ans = gs-answer.box1[pmid] ?= {}
-
-      for stc in md.match /- \[[x\s]\].*\n/g
-        stc-ans = ans[stcid = stc.match /\[stcid:\s(\d+)\]/ .1] ?= {}
-
-        if stc.match /<span style='background-color: lightblue;'>.+?<\/span>/g
-          event-wrds = "(#{that.map(-> it = it.match />(.+)</ .1.replace(/\s/g, \|)) * \|})"
-        else
-          event-wrds = ''
-
-        for word, wid in art.word[stcid]
-          if word.match ignored-entity
-            stc-ans[wid] = 0 # ignored words
-          else if res.NER.named-entity.protein[word]
-            stc-ans[wid] = 1 # protein
-          else if word.match event-wrds
-            stc-ans[wid] = 2 # event
-          else if not stc-ans[wid]
-            stc-ans[wid] = -1 # normal words
-
-  fs.write-file-sync "#{opt.path.res}/words/bioEntity.json" JSON.stringify res.NER, null 2
-  fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
-  fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
-
-| \stcSplit
-
-  # re-split words for each article sentence with new regex rule
-
-  special-char = JSON.parse fs.read-file-sync "#{opt.path.src}/words/specialChar.json" \utf-8
-  stop-words = JSON.parse fs.read-file-sync "#{opt.path.src}/words/stopWords.json" \utf-8
-  words = box1: {}
-
-  for pmid in fs.readdir-sync "#{opt.path.src}/box/box1" .filter(-> /^\d+$/ is it)
-    refined-art = (JSON.parse JSON.stringify (art = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8)) <<< nonword: [] word: []
-    art-words = {}
-
-    for stc, stcid in art.context
-      if stc.match /(&#x[\da-f]{5};)/g
-        checked-symbols = {}
-
-        for symbol in that
-          continue if checked-symbols[symbol]
-
-          stc = stc.replace new RegExp(symbol, \g), special-char[symbol].character
-          checked-symbols[symbol] = true
-
-      refined-art.nonword[stcid] = []
-      refined-art.word[stcid] = []
-
-      for w, wid in stc.split /(&thinsp;|\s[-–]\s|[^\wαβγµáéκμνσΔ°–−-]+)/ .slice 0 -1
-        if wid % 2
-          refined-art.nonword[stcid].push w
-        else
-          refined-art.word[stcid].push w
-          continue if stop-words[w]
-
-          word = art-words[w] ?= frequency: 0 stcid: {}
-          word.frequency++
-          word.stcid[stcid] = true
-    words.box1[pmid] = [{word: ..} <<< art-words[..] for Object.keys(art-words).sort (a, b) -> art-words[b].frequency - art-words[a].frequency]
-
-    fs.write-file-sync "#{opt.path.res}/world/box/#pmid" JSON.stringify refined-art, null 2
-
-  fs.write-file-sync "#{opt.path.res}/world/wordsFreq.json" JSON.stringify words, null 2
-
-| \top
+| \build-pending-words
   return ERR 'Error input: amounts of top frequent words' if not (opt.max-tops = parseInt opt.max-tops)
   return ERR 'Error input: threshold of word frequency' if not (opt.min-freq = parseInt opt.min-freq)
 
@@ -176,5 +97,84 @@ switch opt.action
 
     fs.write-file-sync "#{opt.path.src}/words/pending/NER_#pmid.md" md-NER
     fs.write-file-sync "#{opt.path.src}/words/pending/PPI_#pmid.md" md-PPI
+
+| \parse-checked-words
+  gs-answer = if fs.exists-sync "#{opt.path.res}/gs-answer.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8 else box1: {}
+  ignored-entity = "(#{JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8 .join \|})"
+
+  for md in fs.readdir-sync "#{opt.path.src}/words/checked/"
+    if /^NER/ is md
+      for item in fs.read-file-sync "#{opt.path.src}/words/checked/#md" \utf-8 .match /###.*/g
+        word = item.match /###\s(.+?)\s/ .1
+        if /{(.+)}/ is item then (that.1 / ', ').map -> res.NER.named-entity[it][word] = true
+        else                     res.nor[word] = true
+
+    else if /^PPI/ is md
+      md = fs.read-file-sync "#{opt.path.src}/words/checked/#md" \utf-8
+      art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#{pmid = md.match /##\s(\d+)\n/ .1}" \utf-8
+      ans = gs-answer.box1[pmid] ?= {}
+
+      for stc in md.match /- \[[x\s]\].*\n/g
+        stc-ans = ans[stcid = stc.match /\[stcid:\s(\d+)\]/ .1] ?= {}
+
+        if stc.match /<span style='background-color: lightblue;'>.+?<\/span>/g
+          event-wrds = "(#{that.map(-> it = it.match />(.+)</ .1.replace(/\s/g, \|)) * \|})"
+        else
+          event-wrds = ''
+
+        for word, wid in art.word[stcid]
+          if word.match ignored-entity
+            stc-ans[wid] = 0 # ignored words
+          else if res.NER.named-entity.protein[word]
+            stc-ans[wid] = 1 # protein
+          else if word.match event-wrds
+            stc-ans[wid] = 2 # event
+          else if not stc-ans[wid]
+            stc-ans[wid] = -1 # normal words
+
+  fs.write-file-sync "#{opt.path.res}/words/bioEntity.json" JSON.stringify res.NER, null 2
+  fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
+  fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
+
+| \sentence-resplit
+
+  # resplit words for each article sentence with new regex rule
+
+  special-char = JSON.parse fs.read-file-sync "#{opt.path.src}/words/specialChar.json" \utf-8
+  stop-words = JSON.parse fs.read-file-sync "#{opt.path.src}/words/stopWords.json" \utf-8
+  words = box1: {}
+
+  for pmid in fs.readdir-sync "#{opt.path.src}/box/box1" .filter(-> /^\d+$/ is it)
+    refined-art = (JSON.parse JSON.stringify (art = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8)) <<< nonword: [] word: []
+    art-words = {}
+
+    for stc, stcid in art.context
+      if stc.match /(&#x[\da-f]{5};)/g
+        checked-symbols = {}
+
+        for symbol in that
+          continue if checked-symbols[symbol]
+
+          stc = stc.replace new RegExp(symbol, \g), special-char[symbol].character
+          checked-symbols[symbol] = true
+
+      refined-art.nonword[stcid] = []
+      refined-art.word[stcid] = []
+
+      for w, wid in stc.split /(&thinsp;|\s[-–]\s|[^\wαβγµáéκμνσΔ°–−-]+)/ .slice 0 -1
+        if wid % 2
+          refined-art.nonword[stcid].push w
+        else
+          refined-art.word[stcid].push w
+          continue if stop-words[w]
+
+          word = art-words[w] ?= frequency: 0 stcid: {}
+          word.frequency++
+          word.stcid[stcid] = true
+    words.box1[pmid] = [{word: ..} <<< art-words[..] for Object.keys(art-words).sort (a, b) -> art-words[b].frequency - art-words[a].frequency]
+
+    fs.write-file-sync "#{opt.path.res}/world/box/#pmid" JSON.stringify refined-art, null 2
+
+  fs.write-file-sync "#{opt.path.res}/world/wordsFreq.json" JSON.stringify words, null 2
 
 | _ then ERR 'No corresponding operation'
