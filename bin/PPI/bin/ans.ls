@@ -26,6 +26,30 @@ res =
 #######################################################################################
 
 switch opt.action
+| \buildAns
+
+  # build answers for NER only; use option "parse" to get additional PPI answers
+
+  gs-answer = if fs.exists-sync "#{opt.path.res}/gs-answer.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8 else box1: {}
+  ignored-entity = "(#{JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8 .join \|})"
+
+  for pmid in fs.readdir-sync "#{opt.path.res}/world/box"
+    art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#pmid" \utf-8
+    ans = gs-answer.box1[pmid] ?= {}
+
+    for stc, stcid in art.word
+      stc-ans = ans[stcid] ?= {}
+
+      for word, wid in stc
+        if word.match ignored-entity
+          stc-ans[wid] = 0 # ignored words
+        else if res.NER.named-entity.protein[word]
+          stc-ans[wid] = 1 # protein
+        else if not stc-ans[wid]
+          stc-ans[wid] = -1 # normal words
+
+  fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
+
 | \parse
   gs-answer = if fs.exists-sync "#{opt.path.res}/gs-answer.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8 else box1: {}
   ignored-entity = "(#{JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8 .join \|})"
