@@ -5,9 +5,7 @@ require! <[fs]>
 opt =
   max-tops: 30
   min-freq: 5
-  path:
-    res: \../res
-    src: \../src
+  path: res: \../res src: \../src
 <<< require \node-getopt .create [
   * [\a , \action=ARG  , 'specify operation, which is "parse" or "top"']
   * [\f , \minFreq=ARG , 'set minimum threshold of word frequency in each article to be extracted']
@@ -29,7 +27,8 @@ res =
 
 switch opt.action
 | \parse
-  gs-answer = box1: {}; ignored-entity = "(#{JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8 .join \|})"
+  gs-answer = if fs.exists-sync "#{opt.path.res}/gs-answer.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8 else box1: {}
+  ignored-entity = "(#{JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8 .join \|})"
 
   for md in fs.readdir-sync "#{opt.path.src}/words/checked/"
     if /^NER/ is md
@@ -41,13 +40,13 @@ switch opt.action
     else if /^PPI/ is md
       md = fs.read-file-sync "#{opt.path.src}/words/checked/#md" \utf-8
       art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#{pmid = md.match /##\s(\d+)\n/ .1}" \utf-8
-      gs-answer.box1[pmid] = {}
+      ans = gs-answer.box1[pmid] ?= {}
 
       for stc in md.match /- \[[x\s]\].*\n/g
-        stc-ans = gs-answer.box1[pmid][stcid = stc.match /\[stcid:\s(\d+)\]/ .1] ?= {}
+        stc-ans = ans[stcid = stc.match /\[stcid:\s(\d+)\]/ .1] ?= {}
 
         if stc.match /<span style='background-color: lightblue;'>.+?<\/span>/g
-          event-wrds = "(#{that.map(-> it = it.match />(.+)</ .1.replace(' ', \|)) * \|})"
+          event-wrds = "(#{that.map(-> it = it.match />(.+)</ .1.replace(/\s/g, \|)) * \|})"
         else
           event-wrds = ''
 
@@ -69,11 +68,10 @@ switch opt.action
 
   # re-split words for each article sentence with new regex rule
 
-  special-char = JSON.parse fs.read-file-sync "#{opt.path.src}/words/specialChar.json"
+  special-char = JSON.parse fs.read-file-sync "#{opt.path.src}/words/specialChar.json" \utf-8
 
   for pmid in fs.readdir-sync "#{opt.path.src}/box/box1" .filter(-> /^\d+$/ is it)
-    refined-art = JSON.parse JSON.stringify (art = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8)
-    refined-art <<< nonword: [] word: []
+    refined-art = (JSON.parse JSON.stringify (art = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8)) <<< nonword: [] word: []
 
     for stc, stcid in art.context
       if stc.match /(&#x[\da-f]{5};)/g
