@@ -136,6 +136,78 @@ switch opt.action
   fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
   fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
 
+| \parse-mark-result
+  art = {}; refined-art = {}
+
+  for pmid in fs.readdir-sync "#{opt.path.res}/world/box/"
+    art[pmid] = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8
+    refined-art[pmid] = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#pmid" \utf-8
+
+  mark-result = {}
+  for labeler-group in <[expert subject]>
+
+    for log-id in fs.readdir-sync "#{opt.path.src}/mark-result/#labeler-group"
+      elapsed-time = 0; last-submit-time = null
+
+      for log in (fs.read-file-sync("#{opt.path.src}/mark-result/#labeler-group/#log-id" \utf-8) / \\n).slice 0 -1
+        log = JSON.parse log
+
+        curr-submit-time = new Date(log.time) / 1000
+        elapsed-time = curr-submit-time - last-submit-time if last-submit-time
+        last-submit-time = curr-submit-time
+
+        continue if \submit isnt log.action or 1 isnt log.box
+
+        _box = mark-result["box#{log.box}"] ?= {}
+        _group = _box[labeler-group] ?= {}
+        _labeler = _group[log-id] ?= {}
+        _art = _labeler[log.pmid] ?= {}
+        stc = _art[log.stcid] ?= elapsed-time: elapsed-time, event: {}, protein: {}
+
+        for word-type in <[event protein]>
+          for wid in log[word-type]
+            wid = parseInt wid
+            flag = false
+
+            for i from 0 til art[log.pmid].word[log.stcid].length
+              if art[log.pmid].word[log.stcid][wid] is refined-art[log.pmid].word[log.stcid][wid - i]
+                stc[word-type][wid - i] = true
+              else if art[log.pmid].word[log.stcid][wid] is refined-art[log.pmid].word[log.stcid][wid + i]
+                stc[word-type][wid + i] = true
+              else if refined-art[log.pmid].word[log.stcid][wid - i] and refined-art[log.pmid].word[log.stcid][wid - i].match art[log.pmid].word[log.stcid][wid]
+                stc[word-type][wid - i] = true
+              else if refined-art[log.pmid].word[log.stcid][wid + i] and refined-art[log.pmid].word[log.stcid][wid + i].match art[log.pmid].word[log.stcid][wid]
+                stc[word-type][wid + i] = true
+              else continue
+
+              flag = true
+              break
+
+            console.log art[log.pmid].word[log.stcid][wid] if not flag
+
+  # sentences labeled by subjects
+
+  mark-result.box1.labeled-stc = {}
+
+  for subject-id, mark-rlt of mark-result.box1.subject
+    for pmid, stcs of mark-rlt
+      _art = mark-result.box1.labeled-stc[pmid] ?= {}
+
+      for stcid, stc of stcs
+        _stc = _art[stcid] ?= labeler: {} labels: {} supp: 0
+
+        continue if _stc.labeler[subject-id]
+
+        _stc.labeler[subject-id] = true
+        _stc.supp++
+
+        for word-type in <[event protein]>
+          for wid of stc[word-type]
+            w = _stc.labels[wid] ?= event: 0 protein: 0
+            w[word-type]++
+
+  fs.write-file-sync "#{opt.path.res}/mark-result.json" JSON.stringify mark-result, null 2
+
 | \sentence-resplit
 
   # resplit words for each article sentence with new regex rule
