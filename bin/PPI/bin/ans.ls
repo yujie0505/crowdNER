@@ -127,7 +127,7 @@ switch opt.action
             stc-ans[wid] = 0 # ignored words
           else if res.NER.named-entity.protein[word]
             stc-ans[wid] = 1 # protein
-          else if word.match event-wrds
+          else if '' isnt event-wrds and word.match event-wrds
             stc-ans[wid] = 2 # event
           else if not stc-ans[wid]
             stc-ans[wid] = -1 # normal words
