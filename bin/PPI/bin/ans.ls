@@ -169,7 +169,7 @@ switch opt.action
             wid = parseInt wid
             flag = false
 
-            for i from 0 til art[log.pmid].word[log.stcid].length
+            for i til art[log.pmid].word[log.stcid].length
               if art[log.pmid].word[log.stcid][wid] is refined-art[log.pmid].word[log.stcid][wid - i]
                 stc[word-type][wid - i] = true
               else if art[log.pmid].word[log.stcid][wid] is refined-art[log.pmid].word[log.stcid][wid + i]
@@ -195,9 +195,6 @@ switch opt.action
 
       for stcid, stc of stcs
         _stc = _art[stcid] ?= labeler: {} labels: {} supp: 0
-
-        continue if _stc.labeler[subject-id]
-
         _stc.labeler[subject-id] = true
         _stc.supp++
 
