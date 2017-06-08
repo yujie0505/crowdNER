@@ -5,6 +5,7 @@ require! <[fs]>
 opt =
   max-tops: 30
   min-freq: 5
+  min-supp: 3
   path: res: \../res src: \../src
 <<< require \node-getopt .create [
   * [\a , \action=ARG  , 'specify operation, which is "parse" or "top"']
@@ -245,5 +246,53 @@ switch opt.action
     fs.write-file-sync "#{opt.path.res}/world/box/#pmid" JSON.stringify refined-art, null 2
 
   fs.write-file-sync "#{opt.path.res}/world/wordsFreq.json" JSON.stringify words, null 2
+
+| \show-labeled-result
+  gs-answer = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
+  mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
+
+  html = "<html><head><meta charset='utf-8'></head><body>"
+
+  for pmid in fs.readdir-sync "#{opt.path.res}/world/box"
+    art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#pmid" \utf-8
+
+    for stc, stcid in art.word
+      continue if not mark-result.box1.labeled-stc[pmid][stcid] or mark-result.box1.labeled-stc[pmid][stcid].supp < opt.min-supp
+
+      ans = ''; rlt = ''
+      show-stc = false # show sentences with different label result between gs-answer and mark-result only
+      for word, wid in stc
+        if 2 is gs-answer.box1[pmid][stcid][wid] # event
+          ans += "<span style='background-color: lightblue'>#word</span> (#wid)"
+        else if 1 is gs-answer.box1[pmid][stcid][wid] # protein
+          ans += "<span style='background-color: pink'>#word</span> (#wid)"
+        else if 0 is gs-answer.box1[pmid][stcid][wid] # ignored
+          ans += "<span style='background-color: lightgreen'>#word</span> (#wid)"
+        else # normal
+          ans += "#word (#wid)"
+
+        if mark-result.box1.labeled-stc[pmid][stcid].labels[wid]
+          if mark-result.box1.labeled-stc[pmid][stcid].labels[wid].event > mark-result.box1.labeled-stc[pmid][stcid].labels[wid].protein
+            rlt += "<span style='background-color: lightblue'>#word</span> (#wid)"
+            show-stc = true if 2 isnt gs-answer.box1[pmid][stcid][wid]
+          else if mark-result.box1.labeled-stc[pmid][stcid].labels[wid].event < mark-result.box1.labeled-stc[pmid][stcid].labels[wid].protein
+            rlt += "<span style='background-color: pink'>#word</span> (#wid)"
+            show-stc = true if 1 isnt gs-answer.box1[pmid][stcid][wid]
+          else
+            rlt += "#word (#wid)"
+            show-stc = true if 0 isnt gs-answer.box1[pmid][stcid][wid] and -1 isnt gs-answer.box1[pmid][stcid][wid]
+            console.log "[pmid: #pmid], [stcid: #stcid], [wid: #wid] => #word"
+        else
+          rlt += "#word (#wid)"
+          show-stc = true if 0 isnt gs-answer.box1[pmid][stcid][wid] and -1 isnt gs-answer.box1[pmid][stcid][wid]
+
+        ans += art.nonword[stcid][wid]
+        rlt += art.nonword[stcid][wid]
+
+      html += "<h3>#pmid [stcid: #stcid]</h3><div>#ans</div><div>#rlt</div>" if show-stc
+
+  html += '</body></html>'
+
+  fs.write-file-sync "#{opt.path.res}/labeled-result.html" html
 
 | _ then ERR 'No corresponding operation'
