@@ -1,8 +1,11 @@
-require! <[fs]>
+require! <[edit-google-spreadsheet fs]>
 
 #### global variables (with default values)
 
 opt =
+  code: event: 2 ignored: 0 normal: -1 protein: 1
+  debug: true
+  google: JSON.parse fs.read-file-sync \../../../option.json \utf-8 .google
   max-tops: 30
   min-freq: 5
   min-supp: 3
@@ -42,11 +45,11 @@ switch opt.action
 
       for word, wid in stc
         if word.match ignored-entity
-          stc-ans[wid] = 0 # ignored words
+          stc-ans[wid] = opt.code.ignored
         else if res.NER.named-entity.protein[word]
-          stc-ans[wid] = 1 # protein
+          stc-ans[wid] = opt.code.protein
         else if not stc-ans[wid]
-          stc-ans[wid] = -1 # normal words
+          stc-ans[wid] = opt.code.normal
 
   fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
 
@@ -125,13 +128,13 @@ switch opt.action
 
         for word, wid in art.word[stcid]
           if word.match ignored-entity
-            stc-ans[wid] = 0 # ignored words
+            stc-ans[wid] = opt.code.ignored
           else if res.NER.named-entity.protein[word]
-            stc-ans[wid] = 1 # protein
+            stc-ans[wid] = opt.code.protein
           else if '' isnt event-wrds and word.match event-wrds
-            stc-ans[wid] = 2 # event
+            stc-ans[wid] = opt.code.event
           else if not stc-ans[wid]
-            stc-ans[wid] = -1 # normal words
+            stc-ans[wid] = opt.code.normal
 
   fs.write-file-sync "#{opt.path.res}/words/bioEntity.json" JSON.stringify res.NER, null 2
   fs.write-file-sync "#{opt.path.res}/words/normalWord.json" JSON.stringify res.nor, null 2
@@ -262,28 +265,28 @@ switch opt.action
       ans = ''; rlt = ''
       show-stc = false # show sentences with different label result between gs-answer and mark-result only
       for word, wid in stc
-        if 2 is gs-answer.box1[pmid][stcid][wid] # event
+        if opt.code.event is gs-answer.box1[pmid][stcid][wid]
           ans += "<span style='background-color: lightblue'>#word</span> (#wid)"
-        else if 1 is gs-answer.box1[pmid][stcid][wid] # protein
+        else if opt.code.protein is gs-answer.box1[pmid][stcid][wid]
           ans += "<span style='background-color: pink'>#word</span> (#wid)"
-        else if 0 is gs-answer.box1[pmid][stcid][wid] # ignored
+        else if opt.code.ignored is gs-answer.box1[pmid][stcid][wid]
           ans += "<span style='background-color: lightgreen'>#word</span> (#wid)"
-        else # normal
+        else
           ans += "#word (#wid)"
 
         if mark-result.box1.labeled-stc[pmid][stcid].labels[wid]
           if mark-result.box1.labeled-stc[pmid][stcid].labels[wid].event > mark-result.box1.labeled-stc[pmid][stcid].labels[wid].protein
             rlt += "<span style='background-color: lightblue'>#word</span> (#wid)"
-            show-stc = true if 2 isnt gs-answer.box1[pmid][stcid][wid]
+            show-stc = true if opt.code.event isnt gs-answer.box1[pmid][stcid][wid]
           else if mark-result.box1.labeled-stc[pmid][stcid].labels[wid].event < mark-result.box1.labeled-stc[pmid][stcid].labels[wid].protein
             rlt += "<span style='background-color: pink'>#word</span> (#wid)"
-            show-stc = true if 1 isnt gs-answer.box1[pmid][stcid][wid]
+            show-stc = true if opt.code.protein isnt gs-answer.box1[pmid][stcid][wid]
           else
             rlt += "#word (#wid)"
-            show-stc = true if 0 isnt gs-answer.box1[pmid][stcid][wid] and -1 isnt gs-answer.box1[pmid][stcid][wid]
-        else # normal
+            show-stc = true if opt.code.ignored isnt gs-answer.box1[pmid][stcid][wid] and opt.code.normal isnt gs-answer.box1[pmid][stcid][wid]
+        else
           rlt += "#word (#wid)"
-          show-stc = true if 0 isnt gs-answer.box1[pmid][stcid][wid] and -1 isnt gs-answer.box1[pmid][stcid][wid]
+          show-stc = true if opt.code.ignored isnt gs-answer.box1[pmid][stcid][wid] and opt.code.normal isnt gs-answer.box1[pmid][stcid][wid]
 
         ans += art.nonword[stcid][wid]
         rlt += art.nonword[stcid][wid]
