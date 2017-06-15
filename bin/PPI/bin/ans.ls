@@ -281,15 +281,14 @@ switch opt.action
           else
             rlt += "#word (#wid)"
             show-stc = true if 0 isnt gs-answer.box1[pmid][stcid][wid] and -1 isnt gs-answer.box1[pmid][stcid][wid]
-            console.log "[pmid: #pmid], [stcid: #stcid], [wid: #wid] => #word"
-        else
+        else # normal
           rlt += "#word (#wid)"
           show-stc = true if 0 isnt gs-answer.box1[pmid][stcid][wid] and -1 isnt gs-answer.box1[pmid][stcid][wid]
 
         ans += art.nonword[stcid][wid]
         rlt += art.nonword[stcid][wid]
 
-      html += "<h3>#pmid [stcid: #stcid]</h3><div>#ans</div><div>#rlt</div>" if show-stc
+      html += "<h2>#pmid [stcid: #stcid]</h2><div>#ans</div><br/><div>#rlt</div>" if show-stc
 
   html += '</body></html>'
 
