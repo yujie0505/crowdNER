@@ -26,6 +26,17 @@ res =
 
 !function ERR then throw it
 
+!function verify ans, mark-rlt, verify-rlt
+  for pmid, stcs of mark-rlt
+    for stcid, stc of stcs
+      verify-rlt.submits++
+
+      for wid, label of ans[pmid][stcid]
+        if opt.code.ignored is label then continue
+        else if opt.code.protein is label then verify-rlt[if stc.protein[wid] then \tp else \fn]++
+        else if opt.code.event   is label then verify-rlt[if stc.event[wid] then \tp else \fn]++
+        else verify-rlt[if stc.protein[wid] or stc.event[wid] then \fp else \tn]++
+
 #######################################################################################
 
 switch opt.action
@@ -296,5 +307,71 @@ switch opt.action
   html += '</body></html>'
 
   fs.write-file-sync "#{opt.path.res}/labeled-result.html" html
+
+| \verify
+
+  # compare mark-result with gs-answer and show statistic data on google spreadsheet
+
+  gs-answer = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
+  mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
+  stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
+  subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
+
+  app =
+    row-id: 6 separated-rows-between-blocks: 3
+    col-id: subject-id: 1 department: 2 degree: 3 grade: 4 submits: 5 tp: 6 fp: 7 fn: 8 tn: 9 accuracy: 10 recall: 11 precision: 12 f-score: 13
+  stats = {}
+
+  (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.stats
+  return ERR 'Failed as loading to google spreadsheet' if err
+
+  # verification of individual expert
+
+  for expert-id of mark-result.box1.expert
+    verify gs-answer.box1, mark-result.box1.expert[expert-id], rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
+    acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
+    rec = rlt.tp / (rlt.tp + rlt.fn)
+    pre = rlt.tp / (rlt.tp + rlt.fp)
+
+    stats[app.row-id++] =
+      "#{app.col-id.subject-id}": expert-id
+      "#{app.col-id.submits}"   : rlt.submits
+      "#{app.col-id.tp}"        : rlt.tp
+      "#{app.col-id.fp}"        : rlt.fp
+      "#{app.col-id.fn}"        : rlt.fn
+      "#{app.col-id.tn}"        : rlt.tn
+      "#{app.col-id.accuracy}"  : acc
+      "#{app.col-id.recall}"    : rec
+      "#{app.col-id.precision}" : pre
+      "#{app.col-id.f-score}"   : 2 * pre * rec / (pre + rec)
+
+  app.row-id += app.separated-rows-between-blocks
+
+  # verification of individual subject
+
+  for degree in <[Bachelor Master Doctor Assistant]>
+    for subject-id in subject.sort-by-degree[degree]
+      rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
+      subject.personal[subject-id].expID.map -> verify gs-answer.box1, mark-result.box1.subject[it], rlt
+      acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
+      rec = rlt.tp / (rlt.tp + rlt.fn)
+      pre = rlt.tp / (rlt.tp + rlt.fp)
+
+      stats[app.row-id++] =
+        "#{app.col-id.subject-id}": subject-id
+        "#{app.col-id.department}": subject.personal[subject-id].department
+        "#{app.col-id.degree}"    : subject.personal[subject-id].degree
+        "#{app.col-id.grade}"     : subject.personal[subject-id].grade || ''
+        "#{app.col-id.submits}"   : rlt.submits
+        "#{app.col-id.tp}"        : rlt.tp
+        "#{app.col-id.fp}"        : rlt.fp
+        "#{app.col-id.fn}"        : rlt.fn
+        "#{app.col-id.tn}"        : rlt.tn
+        "#{app.col-id.accuracy}"  : acc
+        "#{app.col-id.recall}"    : rec
+        "#{app.col-id.precision}" : pre
+        "#{app.col-id.f-score}"   : 2 * pre * rec / (pre + rec)
+
+  sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
 | _ then ERR 'No corresponding operation'
