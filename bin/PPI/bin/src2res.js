@@ -31,7 +31,7 @@ const src = {
 google.load({
   debug         : opt.debug,
   oauth2        : opt.google.oauth2,
-  spreadsheetId : opt.google.spreadsheet,
+  spreadsheetId : opt.google.spreadsheetId,
   worksheetId   : opt.google.worksheet.enroll
 }, (err, sheet) => {
   if (err) throw err
@@ -43,22 +43,27 @@ google.load({
 
     // parse subject information
 
-    const subject = {}
+    const subject = { personal: {}, sortByDegree: {} }
     let col = opt.worksheetCol.enroll
     for (let i in rows) {
-      if (subject[rows[i][col.studentID]])
-        subject[rows[i][col.studentID]].expID.push(rows[i][col.expID])
+      if (subject.personal[rows[i][col.studentID]])
+        subject.personal[rows[i][col.studentID]].expID.push(rows[i][col.expID])
       else {
         let degree_grade = rows[i][col.degree].split('_')
-        subject[rows[i][col.studentID]] = {
+        subject.personal[rows[i][col.studentID]] = {
           degree     : degree_grade[0],
           department : rows[i][col.department],
           expID      : [rows[i][col.expID]],
           grade      : degree_grade[1],
           name       : rows[i][col.name]
         }
+
+        let degree = subject.sortByDegree[degree_grade[0]] ? subject.sortByDegree[degree_grade[0]] : subject.sortByDegree[degree_grade[0]] = []
+        degree.push(rows[i][col.studentID])
       }
     }
+
+    Object.keys(subject.sortByDegree).map(it => subject.sortByDegree[it].sort((a, b) => subject.personal[a].grade - subject.personal[b].grade))
     fs.writeFileSync(`${opt.resPath}/world/subject.json`, JSON.stringify(subject, null, 2))
 
     // parse world information
