@@ -1,4 +1,4 @@
-require! <[edit-google-spreadsheet fs]>
+require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls]>
 
 #### global variables (with default values)
 
@@ -25,17 +25,6 @@ res =
 #### utility
 
 !function ERR then throw it
-
-!function verify ans, mark-rlt, verify-rlt
-  for pmid, stcs of mark-rlt
-    for stcid, stc of stcs
-      verify-rlt.submits++
-
-      for wid, label of ans[pmid][stcid]
-        if      opt.code.ignored is label then continue
-        else if opt.code.protein is label then verify-rlt[if stc.protein[wid] then \tp else \fn]++
-        else if opt.code.event   is label then verify-rlt[if stc.event[wid] then \tp else \fn]++
-        else verify-rlt[if stc.protein[wid] or stc.event[wid] then \fp else \tn]++
 
 #######################################################################################
 
@@ -317,6 +306,8 @@ switch opt.action
   stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
   subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
 
+  verify = crowd.verify-PPI # choose verification type
+
   app =
     col-id: subject-id: 1 department: 2 degree: 3 grade: 4 submits: 5 tp: 6 fp: 7 fn: 8 tn: 9 accuracy: 10 recall: 11 precision: 12 f-score: 13
     max-considered-conf: 0.8 max-considered-supp: 15 row-id: 6 separated-rows-between-blocks: 3
@@ -382,21 +373,7 @@ switch opt.action
 
     for min-conf from 0.1 to app.max-considered-conf by 0.1
       rlt = verify-rlts[min-supp][min-conf.to-fixed 1] = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
-      mark-rlt = {}
-
-      for pmid, stcs of mark-result.box1.labeled-stc
-        mark-rlt[pmid] = {}
-
-        for stcid, stc of stcs
-          continue if stc.supp < min-supp
-
-          rlt.stc.total++
-          rlt.stc["val_#{stc-value.box1[pmid][stcid]}"]++
-
-          mark-rlt[pmid][stcid] = event: {} protein: {}
-          for wid, labels of stc.labels
-            if labels.event > labels.protein and labels.event / stc.supp >= min-conf then mark-rlt[pmid][stcid].event[wid] = true
-            else if labels.protein > labels.event and labels.protein / stc.supp >= min-conf then mark-rlt[pmid][stcid].protein[wid] = true
+      mark-rlt = crowd.integrate stc-value, min-supp, min-conf, mark-result.box1.labeled-stc, rlt
 
       verify gs-answer.box1, mark-rlt, rlt
       rlt.pre = rlt.tp / (rlt.tp + rlt.fp)
