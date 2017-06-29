@@ -306,11 +306,11 @@ switch opt.action
   stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
   subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
 
-  verify = crowd.verify-PPI # choose verification type
+  theme = \NER # choose verification type
 
   app =
     col-id: subject-id: 1 department: 2 degree: 3 grade: 4 submits: 5 tp: 6 fp: 7 fn: 8 tn: 9 accuracy: 10 recall: 11 precision: 12 f-score: 13
-    max-considered-conf: 0.8 max-considered-supp: 15 row-id: 6 separated-rows-between-blocks: 3
+    max-considered-conf: 1 max-considered-supp: 15 row-id: 6 separated-rows-between-blocks: 3
   stats = {}
 
   (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.stats
@@ -319,7 +319,7 @@ switch opt.action
   # verification of individual expert
 
   for expert-id of mark-result.box1.expert
-    verify gs-answer.box1, mark-result.box1.expert[expert-id], rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
+    crowd.verify theme, gs-answer.box1, mark-result.box1.expert[expert-id], rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
     acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
     pre = rlt.tp / (rlt.tp + rlt.fp)
     rec = rlt.tp / (rlt.tp + rlt.fn)
@@ -343,7 +343,7 @@ switch opt.action
   for degree in <[Bachelor Master Doctor Assistant]>
     for subject-id in subject.sort-by-degree[degree]
       rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
-      subject.personal[subject-id].expID.map -> verify gs-answer.box1, mark-result.box1.subject[it], rlt
+      subject.personal[subject-id].expID.map -> crowd.verify theme, gs-answer.box1, mark-result.box1.subject[it], rlt
       acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
       pre = rlt.tp / (rlt.tp + rlt.fp)
       rec = rlt.tp / (rlt.tp + rlt.fn)
@@ -371,11 +371,11 @@ switch opt.action
   for min-supp from 1 to app.max-considered-supp
     verify-rlts[min-supp] = {}
 
-    for min-conf from 0.1 to app.max-considered-conf by 0.1
+    for min-conf from 0.3 to app.max-considered-conf by 0.1
       rlt = verify-rlts[min-supp][min-conf.to-fixed 1] = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
-      mark-rlt = crowd.integrate stc-value, min-supp, min-conf, mark-result.box1.labeled-stc, rlt
+      mark-rlt = crowd.integrate theme, stc-value, min-supp, min-conf, mark-result.box1.labeled-stc, rlt
 
-      verify gs-answer.box1, mark-rlt, rlt
+      crowd.verify theme, gs-answer.box1, mark-rlt, rlt
       rlt.pre = rlt.tp / (rlt.tp + rlt.fp)
       rlt.rec = rlt.tp / (rlt.tp + rlt.fn)
       rlt.f-score = 2 * rlt.pre * rlt.rec / (rlt.pre + rlt.rec)
@@ -384,15 +384,17 @@ switch opt.action
     for min-supp from 1 to app.max-considered-supp
       stats[++app.row-id] =
         '1': min-supp
-        '2': verify-rlts[min-supp]['0.1'].stc.total
-        '3': verify-rlts[min-supp]['0.1'].stc.val_0
-        '4': verify-rlts[min-supp]['0.1'].stc.val_1
-        '5': verify-rlts[min-supp]['0.1'].stc.val_2
+        '2': verify-rlts[min-supp]['0.3'].stc.total
+        '3': verify-rlts[min-supp]['0.3'].stc.val_0
+        '4': verify-rlts[min-supp]['0.3'].stc.val_1
+        '5': verify-rlts[min-supp]['0.3'].stc.val_2
 
       col-id = 6
-      for min-conf from 0.1 to app.max-considered-conf by 0.1
+      for min-conf from 0.3 to app.max-considered-conf by 0.1
         stats[app.row-id][col-id++] = verify-rlts[min-supp][min-conf.to-fixed 1][statistics]
     app.row-id += 14 # empty rows for showing charts
+
+  fs.write-file-sync "#{opt.path.res}/verify-rlts/#theme.json" JSON.stringify verify-rlts, null 2
 
   sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
