@@ -39,7 +39,7 @@ opt = code: event: 2 ignored: 0 normal: -1 protein: 1
   | _                then rlt[if stc-labeled.protein[wid] or stc-labeled.event[wid] then \fp else \tn]++
 
 module.exports =
-  integrate: (theme, stc-value, min-supp, min-conf, mark-rlts, statistics) ->
+  integrate-exceeded: (theme, stc-value, min-supp, min-conf, mark-rlts, statistics) ->
     integrate = if \NER is theme then integrate-NER else if \PPI is theme then integrate-PPI
 
     mark-rlt = {}
@@ -48,7 +48,22 @@ module.exports =
 
       for stcid, stc of stcs
         continue if stc.supp < min-supp
-        # continue if stc.supp isnt min-supp
+
+        statistics.stc.total++
+        statistics.stc["val_#{stc-value.box1[pmid][stcid]}"]++
+        integrate stc, stc.supp * min-conf, mark-rlt[pmid][stcid] = {}
+
+    mark-rlt
+
+  integrate-fixed: (theme, stc-value, supp, min-conf, mark-rlts, statistics) ->
+    integrate = if \NER is theme then integrate-NER else if \PPI is theme then integrate-PPI
+
+    mark-rlt = {}
+    for pmid, stcs of mark-rlts
+      mark-rlt[pmid] = {}
+
+      for stcid, stc of stcs
+        continue if stc.supp isnt supp
 
         statistics.stc.total++
         statistics.stc["val_#{stc-value.box1[pmid][stcid]}"]++

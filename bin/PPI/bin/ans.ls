@@ -5,16 +5,20 @@ require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls]>
 opt =
   code: event: 2 ignored: 0 normal: -1 protein: 1
   debug: true
+  fixed-supp: false
   google: JSON.parse fs.read-file-sync \../../../option.json \utf-8 .google
   max-tops: 30
   min-freq: 5
   min-supp: 3
   path: res: \../res src: \../src
+  theme: \PPI
 <<< require \node-getopt .create [
-  * [\a , \action=ARG  , 'specify operation, which is "parse" or "top"']
+  * [\a , \action=ARG  , 'specify operation']
   * [\f , \minFreq=ARG , 'set minimum threshold of word frequency in each article to be extracted']
+  * [\F , \fixedSupp   , 'set for integrating results exactly satisfy the required support (default: more than minimum support)']
   * [\h , \help        , 'show this help']
   * [\t , \maxTops=ARG , 'set maximum amounts of top frequent words in each article to be extracted']
+  * [\T , \theme=ARG   , 'specify theme (default: `PPI`)']
 ] .bind-help '\nUsage: lsc ans.ls\n[[OPTIONS]]\n' .parse-system!options
 
 res =
@@ -306,7 +310,7 @@ switch opt.action
   stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
   subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
 
-  theme = \NER # choose verification type
+  integrate = if opt.fixed-supp then crowd.integrate-fixed else crowd.integrate-exceeded # integrating type
 
   app =
     col-id: subject-id: 1 department: 2 degree: 3 grade: 4 submits: 5 tp: 6 fp: 7 fn: 8 tn: 9 accuracy: 10 recall: 11 precision: 12 f-score: 13
@@ -319,7 +323,7 @@ switch opt.action
   # verification of individual expert
 
   for expert-id of mark-result.box1.expert
-    crowd.verify theme, gs-answer.box1, mark-result.box1.expert[expert-id], rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
+    crowd.verify opt.theme, gs-answer.box1, mark-result.box1.expert[expert-id], rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
     acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
     pre = rlt.tp / (rlt.tp + rlt.fp)
     rec = rlt.tp / (rlt.tp + rlt.fn)
@@ -343,7 +347,7 @@ switch opt.action
   for degree in <[Bachelor Master Doctor Assistant]>
     for subject-id in subject.sort-by-degree[degree]
       rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
-      subject.personal[subject-id].expID.map -> crowd.verify theme, gs-answer.box1, mark-result.box1.subject[it], rlt
+      subject.personal[subject-id].expID.map -> crowd.verify opt.theme, gs-answer.box1, mark-result.box1.subject[it], rlt
       acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
       pre = rlt.tp / (rlt.tp + rlt.fp)
       rec = rlt.tp / (rlt.tp + rlt.fn)
@@ -373,9 +377,9 @@ switch opt.action
 
     for min-conf from 0.3 to app.max-considered-conf by 0.1
       rlt = verify-rlts[min-supp][min-conf.to-fixed 1] = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
-      mark-rlt = crowd.integrate theme, stc-value, min-supp, min-conf, mark-result.box1.labeled-stc, rlt
+      mark-rlt = integrate opt.theme, stc-value, min-supp, min-conf, mark-result.box1.labeled-stc, rlt
 
-      crowd.verify theme, gs-answer.box1, mark-rlt, rlt
+      crowd.verify opt.theme, gs-answer.box1, mark-rlt, rlt
       rlt.pre = rlt.tp / (rlt.tp + rlt.fp)
       rlt.rec = rlt.tp / (rlt.tp + rlt.fn)
       rlt.f-score = 2 * rlt.pre * rlt.rec / (rlt.pre + rlt.rec)
@@ -394,7 +398,7 @@ switch opt.action
         stats[app.row-id][col-id++] = verify-rlts[min-supp][min-conf.to-fixed 1][statistics]
     app.row-id += 14 # empty rows for showing charts
 
-  fs.write-file-sync "#{opt.path.res}/verify-rlts/#theme.json" JSON.stringify verify-rlts, null 2
+  fs.write-file-sync "#{opt.path.res}/verify-rlts/#{opt.theme}.json" JSON.stringify verify-rlts, null 2
 
   sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
