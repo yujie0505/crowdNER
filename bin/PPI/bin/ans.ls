@@ -398,8 +398,6 @@ switch opt.action
         stats[app.row-id][col-id++] = verify-rlts[min-supp][min-conf.to-fixed 1][statistics]
     app.row-id += 14 # empty rows for showing charts
 
-  fs.write-file-sync "#{opt.path.res}/verify-rlts/#{opt.theme}.json" JSON.stringify verify-rlts, null 2
-
   sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
 | _ then ERR 'No corresponding operation'
