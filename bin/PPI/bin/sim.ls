@@ -1,28 +1,26 @@
-require! <[edit-google-spreadsheet fs]>
+require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls ../../../lib/math.js]>
 
 #### global variables (with default values)
 
 opt =
   code: event: 2 ignored: 0 normal: -1 protein: 1
+  column: sim-volume: 1 stc: total: 2 val_0: 3 val_1: 4 val_2: 5
   debug: true
   google: JSON.parse fs.read-file-sync \../../../option.json \utf-8 .google
+  min-conf: [0.3 to 1 by 0.1]
   path: res: \../res src: \../src
-  sim-volume: 100
+  sim-volume: min: 10 max: 100 step: 5
+  supp-required: 3
+  theme: \PPI
 <<< require \node-getopt .create [
-  * [\a , \action=ARG , 'specify operation, which is "build-data" or "verify"']
-  * [\h , \help       , 'show this help']
+  * [\h , \help             , 'show this help']
+  * [\s , \suppRequired=ARG , 'set the required support of labeled sentences by subjects (default: 3)']
+  * [\T , \theme=ARG        , 'specify theme (default: `PPI`)']
 ] .bind-help '\nUsage: lsc sim.ls\n[[OPTIONS]]\n' .parse-system!options
 
-gs-answer = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
+opt.supp-required = parseInt opt.supp-required
 
 #### utility
-
-function choose-weighted
-  choice-pool = []
-  for choice, weight of it
-    for til weight
-      choice-pool.push choice
-  -> choice-pool[Math.floor Math.random! * choice-pool.length]
 
 !function ERR then throw it
 
@@ -32,81 +30,71 @@ function choose-weighted
     it[i - 1] = it[j = Math.floor Math.random! * i]
     it[j] = t
 
-!function verify ans, mark-rlt, verify-rlt
-  for pmid, stcs of mark-rlt
-    for stcid, stc of stcs
-      verify-rlt.submits++
-
-      for wid, label of ans[pmid][stcid]
-        if      opt.code.ignored is label then continue
-        else if opt.code.protein is label then verify-rlt[if stc.protein[wid] then \tp else \fn]++
-        else if opt.code.event   is label then verify-rlt[if stc.event[wid] then \tp else \fn]++
-        else verify-rlt[if stc.protein[wid] or stc.event[wid] then \fp else \tn]++
-
 #######################################################################################
 
-switch opt.action
-| \build-data
-  _stc-stack = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/stack" \utf-8
+gs-answer   = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
+mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
+stc-value   = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
 
-  mark-result = box1: subject: {}
-  stc-value = choose-weighted 0: 1 1: 3 2: 6
-  for sim-id til opt.sim-volume
-    rlt = mark-result.box1.subject["_sim_#sim-id"] = {}
-    prob-tp = choose-weighted 0: 44 1: 56 #! need to be value of normal distribution
-    prob-tn = choose-weighted 0: 5  1: 95 #! need to be value of normal distribution
+stats = {}; row-id = 4
+sim-result = subject: {} labeled-stc: {}
 
-    stc-stack = JSON.parse JSON.stringify _stc-stack
-    for , stcs of stc-stack then shuffle stcs
-    for til 100 #! number of sentences; need to be random value
-      [pmid, stcid] = stc-stack[stc-value!].pop!
-      art = rlt[pmid] ?= {}
-      stc = art[stcid] ?= event: {} protein: {}
+for sim-volume from opt.sim-volume.min to opt.sim-volume.max by opt.sim-volume.step
 
-      for wid, label of gs-answer.box1[pmid][stcid]
-        if      opt.code.event   is label and \1 is prob-tp! then stc.event[wid] = true
-        else if opt.code.protein is label and \1 is prob-tp! then stc.protein[wid] = true
-        else if opt.code.normal  is label and \0 is prob-tn! then stc.event[wid] = true
+  for sim-id from Object.keys(sim-result.subject).length til sim-volume
+    rlt = sim-result.subject["_sim_#sim-id"] = {}
 
-  fs.write-file-sync "#{opt.path.res}/sim-result.json" JSON.stringify mark-result, null 2
+    for pmid, stcs of mark-result.box1.labeled-stc
+      rlt[pmid] = {}
 
-| \verify
+      for stcid, stc of stcs
+        continue if stc.supp isnt opt.supp-required
 
-  # compare mark-result with gs-answer and show statistic data on google spreadsheet
+        sim-stc = rlt[pmid][stcid] = event: {} protein: {}
 
-  mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/sim-result.json" \utf-8
-  stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
+        sim-art-labeled = sim-result.labeled-stc[pmid] ?= {}
+        sim-stc-labeled = sim-art-labeled[stcid] ?= labels: {} supp: 0
+        sim-stc-labeled.supp++
 
-  app =
-    col-id: sim-id: 1 submits: 5 tp: 6 fp: 7 fn: 8 tn: 9 accuracy: 10 recall: 11 precision: 12 f-score: 13
-    max-considered-conf: 0.8 max-considered-supp: 15 row-id: 6 separated-rows-between-blocks: 3
-  stats = {}
+        for wid, labels of stc.labels
+          labels-normal = stc.supp - labels.event - labels.protein
+          label-picked = (math.choose-weighted <[event normal protein]> [labels.event, labels-normal, labels.protein])!
 
-  (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.sim
-  return ERR 'Failed as loading to google spreadsheet' if err
+          continue if \normal is label-picked
 
-  # verification of individual sim result
+          sim-stc[label-picked][wid] = true
 
-  for sim-id of mark-result.box1.subject
-    verify gs-answer.box1, mark-result.box1.subject[sim-id], rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
-    acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
-    pre = rlt.tp / (rlt.tp + rlt.fp)
-    rec = rlt.tp / (rlt.tp + rlt.fn)
+          sim-stc-labeled.labels[wid] ?= event: 0 protein: 0
+          sim-stc-labeled.labels[wid][label-picked]++
 
-    stats[app.row-id++] =
-      "#{app.col-id.sim-id}"    : sim-id
-      "#{app.col-id.submits}"   : rlt.submits
-      "#{app.col-id.tp}"        : rlt.tp
-      "#{app.col-id.fp}"        : rlt.fp
-      "#{app.col-id.fn}"        : rlt.fn
-      "#{app.col-id.tn}"        : rlt.tn
-      "#{app.col-id.accuracy}"  : acc
-      "#{app.col-id.recall}"    : rec
-      "#{app.col-id.precision}" : pre
-      "#{app.col-id.f-score}"   : 2 * pre * rec / (pre + rec)
+  fs.write-file-sync "#{opt.path.res}/sim/volume_#sim-volume.json" JSON.stringify sim-result, null 2
 
-  app.row-id += app.separated-rows-between-blocks
+  # verification of integrated sim-result
 
-  sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
+  col-id = 6
+  for min-conf in opt.min-conf
+    verify-rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
+    mark-rlt = crowd.integrate-fixed opt.theme, stc-value, sim-volume, min-conf, sim-result.labeled-stc, verify-rlt
 
-| _ then ERR 'No corresponding operation'
+    crowd.verify opt.theme, gs-answer.box1, mark-rlt, verify-rlt
+    verify-rlt.pre = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fp)
+    verify-rlt.rec = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fn)
+    verify-rlt.F-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + verify-rlt.rec)
+
+    for statistics, index in <[pre rec FScore]>
+      stats[row-id + index * 30] ?=
+        "#{opt.column.sim-volume}": sim-volume
+        "#{opt.column.stc.total}" : verify-rlt.stc.total
+        "#{opt.column.stc.val_0}" : verify-rlt.stc.val_0
+        "#{opt.column.stc.val_1}" : verify-rlt.stc.val_1
+        "#{opt.column.stc.val_2}" : verify-rlt.stc.val_2
+
+      stats[row-id + index * 30][col-id] = verify-rlt[statistics]
+
+    col-id++
+  row-id++
+
+(err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.sim
+return ERR 'Failed as loading to google spreadsheet' if err
+
+sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
