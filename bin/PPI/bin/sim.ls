@@ -9,13 +9,21 @@ opt =
   google: JSON.parse fs.read-file-sync \../../../option.json \utf-8 .google
   min-conf: [0.3 to 1 by 0.1]
   path: res: \../res src: \../src
-  sim-volume: min: 10 max: 100 step: 5
+  simulation:
+    NER:
+      prob-tn: max: 0.9951 mean: 0.9760 min: 0.9384 std-dev: 0.0140
+      # prob-tp: max: 0.9588 mean: 0.6696 min: 0.0816 std-dev: 0.2825
+      prob-tp: max: 0.8881 mean: 0.7588 min: 0.5424 std-dev: 0.1195
+    PPI:
+      prob-tn: max: 0.9906 mean: 0.9551 min: 0.8996 std-dev: 0.0233
+      prob-tp: max: 0.8367 mean: 0.5616 min: 0.1134 std-dev: 0.2165
+    volume: min: 10 max: 190 step: 10
   supp-required: 3
-  theme: \PPI
+  theme: \NER
 <<< require \node-getopt .create [
   * [\h , \help             , 'show this help']
   * [\s , \suppRequired=ARG , 'set the required support of labeled sentences by subjects (default: 3)']
-  * [\T , \theme=ARG        , 'specify theme (default: `PPI`)']
+  * [\T , \theme=ARG        , 'specify theme (default: `NER`)']
 ] .bind-help '\nUsage: lsc sim.ls\n[[OPTIONS]]\n' .parse-system!options
 
 opt.supp-required = parseInt opt.supp-required
@@ -39,10 +47,18 @@ stc-value   = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json"
 stats = {}; row-id = 4
 sim-result = subject: {} labeled-stc: {}
 
-for sim-volume from opt.sim-volume.min to opt.sim-volume.max by opt.sim-volume.step
+for sim-volume from opt.simulation.volume.min to opt.simulation.volume.max by opt.simulation.volume.step
+
+  # build simulation data
 
   for sim-id from Object.keys(sim-result.subject).length til sim-volume
     rlt = sim-result.subject["_sim_#sim-id"] = {}
+
+    while true then break if (prob-tn = math.generateGaussianSample opt.simulation[opt.theme].prob-tn.mean, opt.simulation[opt.theme].prob-tn.std-dev) < opt.simulation[opt.theme].prob-tn.max and prob-tn > opt.simulation[opt.theme].prob-tn.min
+    while true then break if (prob-tp = math.generateGaussianSample opt.simulation[opt.theme].prob-tp.mean, opt.simulation[opt.theme].prob-tp.std-dev) < opt.simulation[opt.theme].prob-tp.max and prob-tp > opt.simulation[opt.theme].prob-tp.min
+
+    pick-tn = math.linearInterpolation(1 - prob-tn   , prob-tn, opt.supp-required).map -> math.choose-weighted [0 1] [100 - (it = parseInt it * 100), it]
+    pick-tp = math.linearInterpolation(0.9 * prob-tp , prob-tp, opt.supp-required).map -> math.choose-weighted [0 1] [100 - (it = parseInt it * 100), it]
 
     for pmid, stcs of mark-result.box1.labeled-stc
       rlt[pmid] = {}
@@ -56,9 +72,22 @@ for sim-volume from opt.sim-volume.min to opt.sim-volume.max by opt.sim-volume.s
         sim-stc-labeled = sim-art-labeled[stcid] ?= labels: {} supp: 0
         sim-stc-labeled.supp++
 
-        for wid, labels of stc.labels
-          labels-normal = stc.supp - labels.event - labels.protein
-          label-picked = (math.choose-weighted <[event normal protein]> [labels.event, labels-normal, labels.protein])!
+        for wid, label of gs-answer.box1[pmid][stcid]
+          continue if opt.code.ignored is label
+
+          stc.labels[wid] ?= event: 0 protein: 0
+
+          if opt.code.event is label
+            num-consent = stc.labels[wid].event
+            label-picked = if pick-tp[num-consent]! then \event else \normal
+
+          else if opt.code.protein is label
+            num-consent = stc.labels[wid].protein
+            label-picked = if pick-tp[num-consent]! then \protein else \normal
+
+          else
+            num-consent = stc.supp - stc.labels[wid].event - stc.labels[wid].protein
+            label-picked = if pick-tn[num-consent]! then \normal else \protein
 
           continue if \normal is label-picked
 
