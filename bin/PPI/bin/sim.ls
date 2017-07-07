@@ -11,13 +11,12 @@ opt =
   path: res: \../res src: \../src
   simulation:
     NER:
-      prob-tn: max: 0.9951 mean: 0.9760 min: 0.9384 std-dev: 0.0140
-      # prob-tp: max: 0.9588 mean: 0.6696 min: 0.0816 std-dev: 0.2825
-      prob-tp: max: 0.8881 mean: 0.7588 min: 0.5424 std-dev: 0.1195
+      FPR: mean: 0.0240 std-dev: 0.0140
+      TPR: mean: 0.6696 std-dev: 0.2825
     PPI:
-      prob-tn: max: 0.9906 mean: 0.9551 min: 0.8996 std-dev: 0.0233
-      prob-tp: max: 0.8367 mean: 0.5616 min: 0.1134 std-dev: 0.2165
-    volume: min: 10 max: 190 step: 10
+      FPR: mean: 0.0449 std-dev: 0.0233
+      TPR: mean: 0.5616 std-dev: 0.2165
+    volume: min: 1 max: 37 step: 2
   supp-required: 3
   theme: \NER
 <<< require \node-getopt .create [
@@ -54,42 +53,32 @@ for sim-volume from opt.simulation.volume.min to opt.simulation.volume.max by op
   for sim-id from Object.keys(sim-result.subject).length til sim-volume
     rlt = sim-result.subject["_sim_#sim-id"] = {}
 
-    while true then break if (prob-tn = math.generateGaussianSample opt.simulation[opt.theme].prob-tn.mean, opt.simulation[opt.theme].prob-tn.std-dev) < opt.simulation[opt.theme].prob-tn.max and prob-tn > opt.simulation[opt.theme].prob-tn.min
-    while true then break if (prob-tp = math.generateGaussianSample opt.simulation[opt.theme].prob-tp.mean, opt.simulation[opt.theme].prob-tp.std-dev) < opt.simulation[opt.theme].prob-tp.max and prob-tp > opt.simulation[opt.theme].prob-tp.min
+    FPR = opt.simulation[opt.theme].FPR.mean
 
-    pick-tn = math.linearInterpolation(1 - prob-tn   , prob-tn, opt.supp-required).map -> math.choose-weighted [0 1] [100 - (it = parseInt it * 100), it]
-    pick-tp = math.linearInterpolation(0.9 * prob-tp , prob-tp, opt.supp-required).map -> math.choose-weighted [0 1] [100 - (it = parseInt it * 100), it]
+    # while true then break if (TPR = math.generateGaussianSample opt.simulation[opt.theme].TPR.mean, opt.simulation[opt.theme].TPR.std-dev) < 1 and TPR > 0
+    # TPR = opt.simulation[opt.theme].TPR.mean
+    TPR = 0.6
 
-    for pmid, stcs of mark-result.box1.labeled-stc
+    pick-fp = math.choose-weighted [0 1] [100 - (FPR = parseInt FPR * 100), FPR]
+    pick-tp = math.choose-weighted [0 1] [100 - (TPR = parseInt TPR * 100), TPR]
+
+    for pmid, stcs of gs-answer.box1
       rlt[pmid] = {}
 
       for stcid, stc of stcs
-        continue if stc.supp isnt opt.supp-required
-
         sim-stc = rlt[pmid][stcid] = event: {} protein: {}
 
         sim-art-labeled = sim-result.labeled-stc[pmid] ?= {}
         sim-stc-labeled = sim-art-labeled[stcid] ?= labels: {} supp: 0
         sim-stc-labeled.supp++
 
-        for wid, label of gs-answer.box1[pmid][stcid]
+        for wid, label of stc
           continue if opt.code.ignored is label
 
-          stc.labels[wid] ?= event: 0 protein: 0
-
-          if opt.code.event is label
-            num-consent = stc.labels[wid].event
-            label-picked = if pick-tp[num-consent]! then \event else \normal
-
-          else if opt.code.protein is label
-            num-consent = stc.labels[wid].protein
-            label-picked = if pick-tp[num-consent]! then \protein else \normal
-
-          else
-            num-consent = stc.supp - stc.labels[wid].event - stc.labels[wid].protein
-            label-picked = if pick-tn[num-consent]! then \normal else \protein
-
-          continue if \normal is label-picked
+          if      opt.code.event   is label and pick-tp! then label-picked = \event
+          else if opt.code.protein is label and pick-tp! then label-picked = \protein
+          else if opt.code.normal  is label and pick-fp! then label-picked = \protein
+          else continue
 
           sim-stc[label-picked][wid] = true
 
