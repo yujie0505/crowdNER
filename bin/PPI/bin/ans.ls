@@ -309,6 +309,7 @@ switch opt.action
   mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
   stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
   subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
+  verify-rlt = if fs.exists-sync "#{opt.path.res}/verification.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/verification.json" \utf-8 else {}
 
   integrate = if opt.fixed-supp then crowd.integrate-fixed else crowd.integrate-exceeded # integrating type
 
@@ -316,6 +317,7 @@ switch opt.action
     col-id: subject-id: 1 department: 2 degree: 3 grade: 4 submits: 5 tp: 6 fp: 7 fn: 8 tn: 9 accuracy: 10 recall: 11 precision: 12 f-score: 13
     max-considered-conf: 1 max-considered-supp: 15 row-id: 6 separated-rows-between-blocks: 3
   stats = {}
+  verify-rlt[opt.theme] ?= crowd-sourcing: {} experts: {} subjects: {}
 
   (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.stats
   return ERR 'Failed as loading to google spreadsheet' if err
@@ -324,9 +326,10 @@ switch opt.action
 
   for expert-id of mark-result.box1.expert
     crowd.verify opt.theme, gs-answer.box1, mark-result.box1.expert[expert-id], rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
-    acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
-    pre = rlt.tp / (rlt.tp + rlt.fp)
-    rec = rlt.tp / (rlt.tp + rlt.fn)
+    rlt.acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
+    rlt.pre = rlt.tp / (rlt.tp + rlt.fp)
+    rlt.rec = rlt.tp / (rlt.tp + rlt.fn)
+    rlt.f-score = 2 * rlt.pre * rlt.rec / (rlt.pre + rlt.rec)
 
     stats[app.row-id++] =
       "#{app.col-id.subject-id}": expert-id
@@ -335,10 +338,12 @@ switch opt.action
       "#{app.col-id.fp}"        : rlt.fp
       "#{app.col-id.fn}"        : rlt.fn
       "#{app.col-id.tn}"        : rlt.tn
-      "#{app.col-id.accuracy}"  : acc
-      "#{app.col-id.recall}"    : rec
-      "#{app.col-id.precision}" : pre
-      "#{app.col-id.f-score}"   : 2 * pre * rec / (pre + rec)
+      "#{app.col-id.accuracy}"  : rlt.acc
+      "#{app.col-id.recall}"    : rlt.rec
+      "#{app.col-id.precision}" : rlt.pre
+      "#{app.col-id.f-score}"   : rlt.f-score
+
+    verify-rlt[opt.theme].experts[expert-id] = rlt
 
   app.row-id += app.separated-rows-between-blocks
 
@@ -348,9 +353,10 @@ switch opt.action
     for subject-id in subject.sort-by-degree[degree]
       rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
       subject.personal[subject-id].expID.map -> crowd.verify opt.theme, gs-answer.box1, mark-result.box1.subject[it], rlt
-      acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
-      pre = rlt.tp / (rlt.tp + rlt.fp)
-      rec = rlt.tp / (rlt.tp + rlt.fn)
+      rlt.acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
+      rlt.pre = rlt.tp / (rlt.tp + rlt.fp)
+      rlt.rec = rlt.tp / (rlt.tp + rlt.fn)
+      rlt.f-score = 2 * rlt.pre * rlt.rec / (rlt.pre + rlt.rec)
 
       stats[app.row-id++] =
         "#{app.col-id.subject-id}": subject-id
@@ -362,21 +368,24 @@ switch opt.action
         "#{app.col-id.fp}"        : rlt.fp
         "#{app.col-id.fn}"        : rlt.fn
         "#{app.col-id.tn}"        : rlt.tn
-        "#{app.col-id.accuracy}"  : acc
-        "#{app.col-id.recall}"    : rec
-        "#{app.col-id.precision}" : pre
-        "#{app.col-id.f-score}"   : 2 * pre * rec / (pre + rec)
+        "#{app.col-id.accuracy}"  : rlt.acc
+        "#{app.col-id.recall}"    : rlt.rec
+        "#{app.col-id.precision}" : rlt.pre
+        "#{app.col-id.f-score}"   : rlt.f-score
+
+      verify-rlt[opt.theme].subjects[subject-id] = rlt <<< personal: subject.personal[subject-id]
 
   app.row-id += app.separated-rows-between-blocks
 
   # verification of integrated mark-result
 
-  verify-rlts = {}
+  _verify-rlts = {}
   for min-supp from 1 to app.max-considered-supp
-    verify-rlts[min-supp] = {}
+    _verify-rlts[min-supp] = {}
+    verify-rlt[opt.theme].crowd-sourcing[min-supp] = {}
 
     for min-conf from 0.3 to app.max-considered-conf by 0.1
-      rlt = verify-rlts[min-supp][min-conf.to-fixed 1] = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
+      rlt = _verify-rlts[min-supp][min-conf.to-fixed 1] = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
       mark-rlt = integrate opt.theme, stc-value, min-supp, min-conf, mark-result.box1.labeled-stc, rlt
 
       crowd.verify opt.theme, gs-answer.box1, mark-rlt, rlt
@@ -384,19 +393,23 @@ switch opt.action
       rlt.rec = rlt.tp / (rlt.tp + rlt.fn)
       rlt.f-score = 2 * rlt.pre * rlt.rec / (rlt.pre + rlt.rec)
 
+      verify-rlt[opt.theme].crowd-sourcing[min-supp][min-conf.to-fixed 1] = rlt
+
   for statistics in <[pre rec fScore]>
     for min-supp from 1 to app.max-considered-supp
       stats[++app.row-id] =
         '1': min-supp
-        '2': verify-rlts[min-supp]['0.3'].stc.total
-        '3': verify-rlts[min-supp]['0.3'].stc.val_0
-        '4': verify-rlts[min-supp]['0.3'].stc.val_1
-        '5': verify-rlts[min-supp]['0.3'].stc.val_2
+        '2': _verify-rlts[min-supp]['0.3'].stc.total
+        '3': _verify-rlts[min-supp]['0.3'].stc.val_0
+        '4': _verify-rlts[min-supp]['0.3'].stc.val_1
+        '5': _verify-rlts[min-supp]['0.3'].stc.val_2
 
       col-id = 6
       for min-conf from 0.3 to app.max-considered-conf by 0.1
-        stats[app.row-id][col-id++] = verify-rlts[min-supp][min-conf.to-fixed 1][statistics]
+        stats[app.row-id][col-id++] = _verify-rlts[min-supp][min-conf.to-fixed 1][statistics]
     app.row-id += 14 # empty rows for showing charts
+
+  fs.write-file-sync "#{opt.path.res}/verification.json" JSON.stringify verify-rlt, null 2
 
   sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
