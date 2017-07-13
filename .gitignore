@@ -1,3 +1,4 @@
+app/res/
 bin/**/res/
 bin/**/src/
 node_modules/
