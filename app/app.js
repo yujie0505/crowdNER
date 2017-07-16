@@ -24,19 +24,22 @@ const opt = {
     yaxis: { range: [0, 1] }
   },
   scatter: {
-    mode: 'markers',
+    mode: 'lines',
     type: 'scatter'
   },
-  showResult: location.hash.replace('#', ''),
-  theme: location.search.replace('?theme=', '')
+  showResult: location.hash.replace('#', '')
 }
+
+const search = location.search.split('&')
+opt.theme = search[0].replace('?theme=', '')
+opt.filter = search[1].replace('filter=', '')
 
 const app = {
   dataPoints: {
     verification: {}
   },
   resources: {
-    verification: require(`./res/verify/${opt.theme}/verification.json`)
+    verification: require(`./res/verify/${opt.theme}/verification.${opt.filter}.json`)
   }
 }
 
@@ -76,28 +79,28 @@ switch (opt.showResult) {
     let numPoints = app.dataPoints.verification.subjects.subjectID.length
 
     Plotly.newPlot('subjects_scatter_fScore', [
-      Object.assign(app.dataPoints.verification.subjects.fScore, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter),
-      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].lf, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].uf, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].mean - 2 * verificationRlt[0][0].sd, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].mean + 2 * verificationRlt[0][0].sd, numPoints) }, { type: opt.scatter.type })
-    ], Object.assign({ title: "Subjects' Verification fScore" }, opt.layout))
+      Object.assign(app.dataPoints.verification.subjects.fScore, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter, { mode: 'markers' }),
+      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].lf, numPoints) }, opt.scatter),
+      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].uf, numPoints) }, opt.scatter),
+      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].mean - 2 * verificationRlt[0][0].sd, numPoints) }, opt.scatter),
+      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].mean + 2 * verificationRlt[0][0].sd, numPoints) }, opt.scatter)
+    ], Object.assign({ title: "Subjects' Verification FScore" }, opt.layout))
 
     Plotly.newPlot('subjects_scatter_precision', [
-      Object.assign(app.dataPoints.verification.subjects.precision, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter),
-      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].lf, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].uf, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].mean - 2 * verificationRlt[1][0].sd, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].mean + 2 * verificationRlt[1][0].sd, numPoints) }, { type: opt.scatter.type })
-    ], Object.assign({ title: "Subjects' Verification precision" }, opt.layout))
+      Object.assign(app.dataPoints.verification.subjects.precision, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter, { mode: 'markers' }),
+      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].lf, numPoints) }, opt.scatter),
+      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].uf, numPoints) }, opt.scatter),
+      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].mean - 2 * verificationRlt[1][0].sd, numPoints) }, opt.scatter),
+      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].mean + 2 * verificationRlt[1][0].sd, numPoints) }, opt.scatter)
+    ], Object.assign({ title: "Subjects' Verification Precision" }, opt.layout))
 
     Plotly.newPlot('subjects_scatter_recall', [
-      Object.assign(app.dataPoints.verification.subjects.recall, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter),
-      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].lf, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].uf, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].mean - 2 * verificationRlt[2][0].sd, numPoints) }, { type: opt.scatter.type }),
-      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].mean + 2 * verificationRlt[2][0].sd, numPoints) }, { type: opt.scatter.type })
-    ], Object.assign({ title: "Subjects' Verification recall" }, opt.layout))
+      Object.assign(app.dataPoints.verification.subjects.recall, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter, { mode: 'markers' }),
+      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].lf, numPoints) }, opt.scatter),
+      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].uf, numPoints) }, opt.scatter),
+      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].mean - 2 * verificationRlt[2][0].sd, numPoints) }, opt.scatter),
+      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].mean + 2 * verificationRlt[2][0].sd, numPoints) }, opt.scatter)
+    ], Object.assign({ title: "Subjects' Verification Recall" }, opt.layout))
 
     break;
 
