@@ -309,7 +309,7 @@ switch opt.action
   mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
   stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
   subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
-  verify-rlt = if fs.exists-sync "#{opt.path.res}/verification.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/verification.json" \utf-8 else {}
+  verify-rlt = if fs.exists-sync "#{opt.path.res}/verify/#{opt.theme}/verification.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/verify/#{opt.theme}/verification.json" \utf-8 else crowd-sourcing: {} experts: {} subjects: {}
 
   integrate = if opt.fixed-supp then crowd.integrate-fixed else crowd.integrate-exceeded # integrating type
 
@@ -317,7 +317,6 @@ switch opt.action
     col-id: subject-id: 1 department: 2 degree: 3 grade: 4 submits: 5 tp: 6 fp: 7 fn: 8 tn: 9 accuracy: 10 recall: 11 precision: 12 f-score: 13
     max-considered-conf: 1 max-considered-supp: 15 row-id: 6 separated-rows-between-blocks: 3
   stats = {}
-  verify-rlt[opt.theme] ?= crowd-sourcing: {} experts: {} subjects: {}
 
   (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.stats
   return ERR 'Failed as loading to google spreadsheet' if err
@@ -343,7 +342,7 @@ switch opt.action
       "#{app.col-id.precision}" : rlt.pre
       "#{app.col-id.f-score}"   : rlt.f-score
 
-    verify-rlt[opt.theme].experts[expert-id] = rlt
+    verify-rlt.experts[expert-id] = rlt
 
   app.row-id += app.separated-rows-between-blocks
 
@@ -373,7 +372,7 @@ switch opt.action
         "#{app.col-id.precision}" : rlt.pre
         "#{app.col-id.f-score}"   : rlt.f-score
 
-      verify-rlt[opt.theme].subjects[subject-id] = rlt <<< personal: subject.personal[subject-id]
+      verify-rlt.subjects[subject-id] = rlt <<< personal: subject.personal[subject-id]
 
   app.row-id += app.separated-rows-between-blocks
 
@@ -382,7 +381,7 @@ switch opt.action
   _verify-rlts = {}
   for min-supp from 1 to app.max-considered-supp
     _verify-rlts[min-supp] = {}
-    verify-rlt[opt.theme].crowd-sourcing[min-supp] = {}
+    verify-rlt.crowd-sourcing[min-supp] = {}
 
     for min-conf from 0.3 to app.max-considered-conf by 0.1
       rlt = _verify-rlts[min-supp][min-conf.to-fixed 1] = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
@@ -393,7 +392,7 @@ switch opt.action
       rlt.rec = rlt.tp / (rlt.tp + rlt.fn)
       rlt.f-score = 2 * rlt.pre * rlt.rec / (rlt.pre + rlt.rec)
 
-      verify-rlt[opt.theme].crowd-sourcing[min-supp][min-conf.to-fixed 1] = rlt
+      verify-rlt.crowd-sourcing[min-supp][min-conf.to-fixed 1] = rlt
 
   for statistics in <[pre rec fScore]>
     for min-supp from 1 to app.max-considered-supp
@@ -409,7 +408,7 @@ switch opt.action
         stats[app.row-id][col-id++] = _verify-rlts[min-supp][min-conf.to-fixed 1][statistics]
     app.row-id += 14 # empty rows for showing charts
 
-  fs.write-file-sync "#{opt.path.res}/verification.json" JSON.stringify verify-rlt, null 2
+  fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/verification.json" JSON.stringify verify-rlt, null 2
 
   sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
