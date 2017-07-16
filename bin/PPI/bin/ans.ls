@@ -3,6 +3,9 @@ require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls]>
 #### global variables (with default values)
 
 opt =
+  blacklist:
+    box-plot: <[Z36051031]>
+    double-std-dev: <[Z36051031 F]>
   code: event: 2 ignored: 0 normal: -1 protein: 1
   debug: true
   fixed-supp: false
@@ -11,6 +14,7 @@ opt =
   min-freq: 5
   min-supp: 3
   path: res: \../res src: \../src
+  purification: off
   theme: \PPI
 <<< require \node-getopt .create [
   * [\a , \action=ARG  , 'specify operation']
@@ -145,8 +149,10 @@ switch opt.action
   fs.write-file-sync "#{opt.path.res}/gs-answer.json" JSON.stringify gs-answer, null 2
 
 | \parse-mark-result
-  art = {}; refined-art = {}
+  subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
+  blacklist = "(#{opt.blacklist[opt.purification].map(-> subject.personal[it].expID * \|) * \|})" if opt.purification
 
+  art = {}; refined-art = {}
   for pmid in fs.readdir-sync "#{opt.path.res}/world/box/"
     art[pmid] = JSON.parse fs.read-file-sync "#{opt.path.src}/box/box1/#pmid" \utf-8
     refined-art[pmid] = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#pmid" \utf-8
@@ -155,6 +161,8 @@ switch opt.action
   for labeler-group in <[expert subject]>
 
     for log-id in fs.readdir-sync "#{opt.path.src}/mark-result/#labeler-group"
+      continue if opt.purification and log-id.match blacklist
+
       elapsed-time = 0; last-submit-time = null
 
       for log in (fs.read-file-sync("#{opt.path.src}/mark-result/#labeler-group/#log-id" \utf-8) / \\n).slice 0 -1
