@@ -3,9 +3,7 @@ require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls]>
 #### global variables (with default values)
 
 opt =
-  blacklist:
-    box-plot: <[Z36051031]>
-    double-std-dev: <[Z36051031 F]>
+  blacklist: []
   code: event: 2 ignored: 0 normal: -1 protein: 1
   debug: true
   fixed-supp: false
@@ -14,15 +12,15 @@ opt =
   min-freq: 5
   min-supp: 3
   path: res: \../res src: \../src
-  purification: off
   theme: \PPI
 <<< require \node-getopt .create [
-  * [\a , \action=ARG  , 'specify operation']
-  * [\f , \minFreq=ARG , 'set minimum threshold of word frequency in each article to be extracted']
-  * [\F , \fixedSupp   , 'set for integrating results exactly satisfy the required support (default: more than minimum support)']
-  * [\h , \help        , 'show this help']
-  * [\t , \maxTops=ARG , 'set maximum amounts of top frequent words in each article to be extracted']
-  * [\T , \theme=ARG   , 'specify theme (default: `PPI`)']
+  * [\a , \action=ARG     , 'specify operation']
+  * [\b , \blacklist=ARG+ , 'push subject id in blacklist']
+  * [\f , \minFreq=ARG    , 'set minimum threshold of word frequency in each article to be extracted']
+  * [\F , \fixedSupp      , 'set for integrating results exactly satisfy the required support (default: more than minimum support)']
+  * [\h , \help           , 'show this help']
+  * [\t , \maxTops=ARG    , 'set maximum amounts of top frequent words in each article to be extracted']
+  * [\T , \theme=ARG      , 'specify theme (default: `PPI`)']
 ] .bind-help '\nUsage: lsc ans.ls\n[[OPTIONS]]\n' .parse-system!options
 
 res =
@@ -150,7 +148,7 @@ switch opt.action
 
 | \parse-mark-result
   subject = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
-  blacklist = "(#{opt.blacklist[opt.purification].map(-> subject.personal[it].expID * \|) * \|})" if opt.purification
+  blacklist = "^(#{opt.blacklist.map(-> subject.personal[it].expID * \|) * \|})$"
 
   art = {}; refined-art = {}
   for pmid in fs.readdir-sync "#{opt.path.res}/world/box/"
@@ -161,7 +159,7 @@ switch opt.action
   for labeler-group in <[expert subject]>
 
     for log-id in fs.readdir-sync "#{opt.path.src}/mark-result/#labeler-group"
-      continue if opt.purification and log-id.match blacklist
+      continue if opt.blacklist.length and log-id.match blacklist
 
       elapsed-time = 0; last-submit-time = null
 
@@ -356,8 +354,12 @@ switch opt.action
 
   # verification of individual subject
 
+  blacklist = "^(#{opt.blacklist * \|})$"
+
   for degree in <[Bachelor Master Doctor Assistant]>
     for subject-id in subject.sort-by-degree[degree]
+      continue if opt.blacklist.length and subject-id.match blacklist
+
       rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0
       subject.personal[subject-id].expID.map -> crowd.verify opt.theme, gs-answer.box1, mark-result.box1.subject[it], rlt
       rlt.acc = (rlt.tp + rlt.tn) / (rlt.tp + rlt.fp + rlt.fn + rlt.tn)
