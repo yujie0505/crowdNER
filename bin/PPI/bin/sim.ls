@@ -1,30 +1,41 @@
-require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls ../../../lib/math.js]>
+require! <[fs ../../../lib/crowd.ls ../../../lib/math.js]>
 
 #### global variables (with default values)
 
 opt =
   code: event: 2 ignored: 0 normal: -1 protein: 1
-  column: sim-volume: 1 stc: total: 2 val_0: 3 val_1: 4 val_2: 5
-  debug: true
-  google: JSON.parse fs.read-file-sync \../../../option.json \utf-8 .google
+  color:
+    cyan      : '\033[0;36m'
+    dark-gray : '\033[1;30m'
+    light-red : '\033[1;31m'
+    reset     : '\033[0m'
+    yellow    : '\033[1;33m'
   min-conf: [0.3 to 1 by 0.1]
   path: res: \../res src: \../src
   simulation:
     NER:
-      FPR: mean: 0.0240 std-dev: 0.0137
-      # TPR: mean: 0.6696 std-dev: 0.2754
-      TPR: mean: 0.7005 std-dev: 0.2463
-    repeated: 100
+      * title: \0.50          TPR: { mean: 0.50   std-dev: 0 }      FPR: { mean: 0.0240 std-dev: 0.0137 }
+      * title: \0.55          TPR: { mean: 0.55   std-dev: 0 }      FPR: { mean: 0.0240 std-dev: 0.0137 }
+      * title: \0.60          TPR: { mean: 0.60   std-dev: 0 }      FPR: { mean: 0.0240 std-dev: 0.0137 }
+      * title: \0.65          TPR: { mean: 0.65   std-dev: 0 }      FPR: { mean: 0.0240 std-dev: 0.0137 }
+      * title: \0.70          TPR: { mean: 0.70   std-dev: 0 }      FPR: { mean: 0.0240 std-dev: 0.0137 }
+      * title: \ori           TPR: { mean: 0.6696 std-dev: 0.2754 } FPR: { mean: 0.0240 std-dev: 0.0137 }
+      * title: \removeOutlier TPR: { mean: 0.7005 std-dev: 0.2463 } FPR: { mean: 0.0240 std-dev: 0.0137 }
     PPI:
-      FPR: mean: 0.0449 std-dev: 0.0227
-      TPR: mean: 0.5616 std-dev: 0.2110
+      * title: \0.50          TPR: { mean: 0.50   std-dev: 0 }      FPR: { mean: 0.0449 std-dev: 0.0227 }
+      * title: \0.55          TPR: { mean: 0.55   std-dev: 0 }      FPR: { mean: 0.0449 std-dev: 0.0227 }
+      * title: \0.60          TPR: { mean: 0.60   std-dev: 0 }      FPR: { mean: 0.0449 std-dev: 0.0227 }
+      * title: \0.65          TPR: { mean: 0.65   std-dev: 0 }      FPR: { mean: 0.0449 std-dev: 0.0227 }
+      * title: \0.70          TPR: { mean: 0.70   std-dev: 0 }      FPR: { mean: 0.0449 std-dev: 0.0227 }
+      * title: \ori           TPR: { mean: 0.5616 std-dev: 0.2110 } FPR: { mean: 0.0449 std-dev: 0.0227 }
+    repeated: 100
     volume: min: 1 max: 499 step: 2
   supp-required: 3
   theme: \NER
 <<< require \node-getopt .create [
   * [\h , \help             , 'show this help']
-  * [\s , \suppRequired=ARG , 'set the required support of labeled sentences by subjects (default: 3)']
-  * [\T , \theme=ARG        , 'specify theme (default: `NER`)']
+  * [\s , \suppRequired=ARG , "set the required support for each labeled sentence (default: #{opt.supp-required})"]
+  * [\T , \theme=ARG        , "specify theme (default: `#{opt.theme}`)"]
 ] .bind-help '\nUsage: lsc sim.ls\n[[OPTIONS]]\n' .parse-system!options
 
 opt.supp-required = parseInt opt.supp-required
@@ -45,81 +56,80 @@ gs-answer   = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf
 mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
 stc-value   = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
 
-for sim-exp-id til opt.simulation.repeated
-  console.log {sim-exp-id}
+average-verify-rlt = {}
+for sim-category in opt.simulation[opt.theme]
 
-  stats = {}; row-id = 4
-  sim-result = subject: {} labeled-stc: {} verification: {}
+  if not fs.exists-sync "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}"
+    fs.mkdir-sync "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}"
 
-  for sim-volume from opt.simulation.volume.min to opt.simulation.volume.max by opt.simulation.volume.step
+  average-verify-rlt["TPR_#{sim-category.title}"] = {}
 
-    # build simulation data
+  for sim-exp-id til opt.simulation.repeated
+    sim-result = subject: {} labeled-stc: {} verification: {}
 
-    for sim-id from Object.keys(sim-result.subject).length til sim-volume
-      rlt = sim-result.subject["_sim_#sim-id"] = {}
+    for sim-volume from opt.simulation.volume.min to opt.simulation.volume.max by opt.simulation.volume.step
 
-      FPR = opt.simulation[opt.theme].FPR.mean
+      # build simulation data
 
-      while true then break if (TPR = math.generateGaussianSample opt.simulation[opt.theme].TPR.mean, opt.simulation[opt.theme].TPR.std-dev) < 1 and TPR > 0
-      # TPR = 0.7
+      for sim-sub-id from Object.keys(sim-result.subject).length til sim-volume
+        rlt = sim-result.subject["_sim_#sim-sub-id"] = {}
 
-      pick-fp = math.choose-weighted [0 1] [100 - (FPR = parseInt FPR * 100), FPR]
-      pick-tp = math.choose-weighted [0 1] [100 - (TPR = parseInt TPR * 100), TPR]
+        while true then break if (FPR = math.generateGaussianSample sim-category.FPR.mean, sim-category.FPR.std-dev) < 1 and FPR > 0
+        while true then break if (TPR = math.generateGaussianSample sim-category.TPR.mean, sim-category.TPR.std-dev) < 1 and TPR > 0
 
-      for pmid, stcs of gs-answer.box1
-        rlt[pmid] = {}
+        pick-fp = math.choose-weighted [0 1] [100 - (FPR = parseInt FPR * 100), FPR]
+        pick-tp = math.choose-weighted [0 1] [100 - (TPR = parseInt TPR * 100), TPR]
 
-        for stcid, stc of stcs
-          sim-stc = rlt[pmid][stcid] = event: {} protein: {}
+        for pmid, stcs of gs-answer.box1
+          rlt[pmid] = {}
 
-          sim-art-labeled = sim-result.labeled-stc[pmid] ?= {}
-          sim-stc-labeled = sim-art-labeled[stcid] ?= labels: {} supp: 0
-          sim-stc-labeled.supp++
+          for stcid, stc of stcs
+            sim-stc = rlt[pmid][stcid] = event: {} protein: {}
 
-          for wid, label of stc
-            continue if opt.code.ignored is label
+            sim-art-labeled = sim-result.labeled-stc[pmid] ?= {}
+            sim-stc-labeled = sim-art-labeled[stcid] ?= labels: {} supp: 0
+            sim-stc-labeled.supp++
 
-            if      opt.code.event   is label and pick-tp! then label-picked = \event
-            else if opt.code.protein is label and pick-tp! then label-picked = \protein
-            else if opt.code.normal  is label and pick-fp! then label-picked = \protein
-            else continue
+            for wid, label of stc
+              continue if opt.code.ignored is label
 
-            sim-stc[label-picked][wid] = true
+              if      opt.code.event   is label and pick-tp! then label-picked = \event
+              else if opt.code.protein is label and pick-tp! then label-picked = \protein
+              else if opt.code.normal  is label and pick-fp! then label-picked = \protein
+              else continue
 
-            sim-stc-labeled.labels[wid] ?= event: 0 protein: 0
-            sim-stc-labeled.labels[wid][label-picked]++
+              sim-stc[label-picked][wid] = true
 
-    # verification of integrated sim-result
+              sim-stc-labeled.labels[wid] ?= event: 0 protein: 0
+              sim-stc-labeled.labels[wid][label-picked]++
 
-    col-id = 6
-    sim-result.verification[sim-volume] = {}
-    for min-conf in opt.min-conf
-      verify-rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
-      mark-rlt = crowd.integrate-fixed opt.theme, stc-value, sim-volume, min-conf, sim-result.labeled-stc, verify-rlt
+      # verification of integrated sim-result
 
-      crowd.verify opt.theme, gs-answer.box1, mark-rlt, verify-rlt
-      verify-rlt.pre = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fp)
-      verify-rlt.rec = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fn)
-      verify-rlt.F-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + verify-rlt.rec)
+      sim-result.verification[sim-volume] = {}
+      average-verify-rlt["TPR_#{sim-category.title}"][sim-volume] ?= {}
+      for min-conf in opt.min-conf
+        verify-rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
+        mark-rlt = crowd.integrate-fixed opt.theme, stc-value, sim-volume, min-conf, sim-result.labeled-stc, verify-rlt
 
-      sim-result.verification[sim-volume][min-conf.to-fixed 1] = verify-rlt
+        crowd.verify opt.theme, gs-answer.box1, mark-rlt, verify-rlt
+        verify-rlt.pre = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fp)
+        verify-rlt.rec = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fn)
+        verify-rlt.F-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + verify-rlt.rec)
 
-      for statistics, index in <[pre rec FScore]>
-        stats[row-id + index * 30] ?=
-          "#{opt.column.sim-volume}": sim-volume
-          "#{opt.column.stc.total}" : verify-rlt.stc.total
-          "#{opt.column.stc.val_0}" : verify-rlt.stc.val_0
-          "#{opt.column.stc.val_1}" : verify-rlt.stc.val_1
-          "#{opt.column.stc.val_2}" : verify-rlt.stc.val_2
+        sim-result.verification[sim-volume][(min-conf = min-conf.to-fixed 1)] = verify-rlt
+        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf] ?= pre: 0 rec: 0 F-score: 0
+        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf].pre += verify-rlt.pre
+        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf].rec += verify-rlt.rec
+        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf].F-score += verify-rlt.F-score
 
-        stats[row-id + index * 30][col-id] = verify-rlt[statistics]
+    console.log "[#{opt.color.dark-gray}#{(new Date!to-string! / ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}TPR_#{sim-category.title} #{opt.color.light-red}#{sim-exp-id + 1}#{opt.color.reset}/#{opt.simulation.repeated}"
 
-      col-id++
-    row-id++
+    fs.write-file-sync "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}/sim_#sim-exp-id.json" JSON.stringify sim-result, null 2
 
-  fs.write-file-sync "#{opt.path.res}/sim/#{opt.theme}/TPR_doubleStdDev/sim_#{sim-exp-id}.json" JSON.stringify sim-result, null 2
+  for , confs of average-verify-rlt["TPR_#{sim-category.title}"]
+    for , verify-rlt of confs
+      verify-rlt.pre /= opt.simulation.repeated
+      verify-rlt.rec /= opt.simulation.repeated
+      verify-rlt.F-score /= opt.simulation.repeated
 
-  # (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.sim
-  # return ERR 'Failed as loading to google spreadsheet' if err
-  #
-  # sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
+fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" JSON.stringify average-verify-rlt, null 2
