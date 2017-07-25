@@ -37,7 +37,7 @@ res =
 switch opt.action
 | \build-ans
 
-  # build answers for NER only; use option "parse" to get additional PPI answers
+  # build answers for NER only; specify operation as `parse-checked-words` to get additional PPI answers
 
   gs-answer = if fs.exists-sync "#{opt.path.res}/gs-answer.json" then JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8 else box1: {}
   ignored-entity = "(#{JSON.parse fs.read-file-sync "#{opt.path.res}/words/ignored.json" \utf-8 .join \|})"
@@ -221,7 +221,7 @@ switch opt.action
 
 | \sentence-resplit
 
-  # resplit words for each article sentence with new regex rule
+  # re-split words of each sentence with new regex rule
 
   special-char = JSON.parse fs.read-file-sync "#{opt.path.src}/words/specialChar.json" \utf-8
   stop-words = JSON.parse fs.read-file-sync "#{opt.path.src}/words/stopWords.json" \utf-8
