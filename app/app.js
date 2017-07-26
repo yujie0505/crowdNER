@@ -12,101 +12,101 @@ import './index.pug'
 ///////////////////////////////////////////////////////
 
 const opt = {
-  boxPlot: {
+  box_plot: {
     boxmean   : 'sd',
     boxpoints : 'Outliers',
     type      : 'box'
   },
-  colors: ['#3D9970', '#FF4136', '#FF851B'],
+  colors: ['9d8df1', '7ebdc3', 'fbacbe', 'a18276'],
   layout: {
-    autosize: true,
-    height: 700,
-    yaxis: { range: [0, 1] }
+    autosize : true,
+    height   : 700,
+    legend   : { orientation: 'h', y: -0.12 }
   },
-  scatter: {
+  scatter_plot: {
     mode: 'lines',
     type: 'scatter'
   },
-  showResult: location.hash.replace('#', '')
+  show_result: location.hash.replace('#', ''),
+  theme: location.search.match(/theme=(\w+)/)[1]
 }
 
-const search = location.search.split('&')
-opt.theme = search[0].replace('?theme=', '')
-opt.filter = search[1].replace('filter=', '')
+// utility
 
-const app = {
-  dataPoints: {
-    verification: {}
-  },
-  resources: {
-    verification: require(`./res/verify/${opt.theme}/verification.${opt.filter}.json`)
-  }
+const buildHorizontalLine = (value, size) => {
+  let points = []
+  while (size--)
+    points.push(value)
+
+  return points
 }
 
-const build_line_points = (data, size) => {
-  let linePoints = []
-  for (let i = 0; i < size; i++)
-    linePoints.push(data)
+///////////////////////////////////////////////////////
 
-  return linePoints
-}
-
-switch (opt.showResult) {
+switch (opt.show_result) {
   case 'subjects':
-    app.dataPoints.verification.subjects = {
-      fScore    : { marker: { color: opt.colors[0] }, name: 'F-score',   y: [] },
-      precision : { marker: { color: opt.colors[1] }, name: 'Precision', y: [] },
-      recall    : { marker: { color: opt.colors[2] }, name: 'Recall',    y: [] },
-      subjectID : []
-    }
+    const outlier = require(`./res/verify/${opt.theme}/outlier.json`)
 
-    for (let subjectID in app.resources.verification.subjects) {
-      app.dataPoints.verification.subjects.fScore.y.push(app.resources.verification.subjects[subjectID].fScore)
-      app.dataPoints.verification.subjects.precision.y.push(app.resources.verification.subjects[subjectID].pre)
-      app.dataPoints.verification.subjects.recall.y.push(app.resources.verification.subjects[subjectID].rec)
-      app.dataPoints.verification.subjects.subjectID.push(subjectID)
-    }
+    const data = { name: "Subject's Outlier Score", y: outlier.outlier_score }
+    Plotly.newPlot('subjects_outlier_score_boxPlot', [ Object.assign(data, opt.box_plot) ], opt.layout)
 
-    // subjects.boxPlot
-
-    Plotly.newPlot('subjects_boxPlot', [
-      Object.assign(app.dataPoints.verification.subjects.fScore, opt.boxPlot),
-      Object.assign(app.dataPoints.verification.subjects.precision, opt.boxPlot),
-      Object.assign(app.dataPoints.verification.subjects.recall, opt.boxPlot)
-    ], Object.assign({ title: "Subjects' Verification" }, opt.layout))
-
-    let verificationRlt = document.getElementById('subjects_boxPlot').calcdata
-    let numPoints = app.dataPoints.verification.subjects.subjectID.length
-
-    Plotly.newPlot('subjects_scatter_fScore', [
-      Object.assign(app.dataPoints.verification.subjects.fScore, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter, { mode: 'markers' }),
-      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].lf, numPoints) }, opt.scatter),
-      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].uf, numPoints) }, opt.scatter),
-      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].mean - 2 * verificationRlt[0][0].sd, numPoints) }, opt.scatter),
-      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[0][0].mean + 2 * verificationRlt[0][0].sd, numPoints) }, opt.scatter)
-    ], Object.assign({ title: "Subjects' Verification FScore" }, opt.layout))
-
-    Plotly.newPlot('subjects_scatter_precision', [
-      Object.assign(app.dataPoints.verification.subjects.precision, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter, { mode: 'markers' }),
-      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].lf, numPoints) }, opt.scatter),
-      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].uf, numPoints) }, opt.scatter),
-      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].mean - 2 * verificationRlt[1][0].sd, numPoints) }, opt.scatter),
-      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[1][0].mean + 2 * verificationRlt[1][0].sd, numPoints) }, opt.scatter)
-    ], Object.assign({ title: "Subjects' Verification Precision" }, opt.layout))
-
-    Plotly.newPlot('subjects_scatter_recall', [
-      Object.assign(app.dataPoints.verification.subjects.recall, { x: app.dataPoints.verification.subjects.subjectID }, opt.scatter, { mode: 'markers' }),
-      Object.assign({ name: 'box plot minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].lf, numPoints) }, opt.scatter),
-      Object.assign({ name: 'box plot maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].uf, numPoints) }, opt.scatter),
-      Object.assign({ name: 'double stdDev minimum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].mean - 2 * verificationRlt[2][0].sd, numPoints) }, opt.scatter),
-      Object.assign({ name: 'double stdDev maximum', x: app.dataPoints.verification.subjects.subjectID, y: build_line_points(verificationRlt[2][0].mean + 2 * verificationRlt[2][0].sd, numPoints) }, opt.scatter)
-    ], Object.assign({ title: "Subjects' Verification Recall" }, opt.layout))
+    const statistics = document.getElementById('subjects_outlier_score_boxPlot').calcdata[0][0]
+    Plotly.newPlot('subjects_outlier_score_scatterPlot', [
+      Object.assign(data, { mode: 'markers', type: 'scatter', x: outlier.subjects }),
+      Object.assign({ name: 'Double StdDev Minimum', x: outlier.subjects, y: buildHorizontalLine((statistics.mean - 2 * statistics.sd), outlier.subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Double StdDev Maximum', x: outlier.subjects, y: buildHorizontalLine((statistics.mean + 2 * statistics.sd), outlier.subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Box Plot Minimum',      x: outlier.subjects, y: buildHorizontalLine(statistics.lf, outlier.subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Box Plot Maximum',      x: outlier.subjects, y: buildHorizontalLine(statistics.uf, outlier.subjects.length) }, opt.scatter_plot)
+    ], opt.layout)
 
     break;
 
   case 'crowdSourcing':
+    const verification = require(`./res/verify/${opt.theme}/verification.${location.search.match(/source=(\w+)/)[1]}.json`)
+
+    const verify_rlt = { fScore: {}, pre: {}, rec: {} }
+    for (let support in verification.crowdSourcing) {
+      for (let confidence in verification.crowdSourcing[support]) {
+        if ('0.3' === confidence || '0.4' === confidence) continue
+
+        for (let statistics in verify_rlt) {
+          let trace = verify_rlt[statistics][confidence] ? verify_rlt[statistics][confidence] : verify_rlt[statistics][confidence] = { name: `Confidence = ${confidence}`, x: [], y: [] }
+
+          trace.x.push(support)
+          trace.y.push(verification.crowdSourcing[support][confidence][statistics])
+        }
+      }
+    }
+
+    const titles = { fScore: 'FScore', pre: 'Precision', rec: 'Recall' }
+    for (let statistics in verify_rlt) {
+      let traces = []
+
+      for (let confidence in verify_rlt[statistics])
+        traces.push(Object.assign(verify_rlt[statistics][confidence], opt.scatter_plot))
+
+      Plotly.newPlot(`crowdSourcing_verification_${titles[statistics]}`, traces, Object.assign({ title: `CrowdSourcing Verification ${titles[statistics]}` }, opt.layout))
+    }
+
     break;
 
   case 'simulation':
+    const simulation = require(`./res/verify/${opt.theme}/sim-verification.json`)
+
+    const traces = []
+    for (let category in simulation) {
+      let trace = { name: category, x: [], y: [] }
+
+      for (let support in simulation[category]) {
+        trace.x.push(support)
+        trace.y.push(simulation[category][support]['0.5'].rec)
+      }
+
+      traces.push(Object.assign(trace, opt.scatter_plot))
+    }
+    traces.push(Object.assign({ name: 'expert', x: traces[0].x, y: buildHorizontalLine(0.9, traces[0].x.length) }, opt.scatter_plot))
+
+    Plotly.newPlot('simulation_verification', traces, Object.assign({ xaxis: { title: 'Simulation Amounts' }, yaxis: { range: [0, 1], title: 'Sensitivity' } }, opt.layout))
+
     break;
 }
