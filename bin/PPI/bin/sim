@@ -1,3 +1,5 @@
+#!/usr/local/bin/lsc
+
 require! <[fs ../../../lib/crowd.ls ../../../lib/math.js]>
 
 #### global variables (with default values)
@@ -133,3 +135,5 @@ for sim-category in opt.simulation[opt.theme]
       verify-rlt.F-score /= opt.simulation.repeated
 
 fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" JSON.stringify average-verify-rlt, null 2
+
+# vi:et:ft=ls

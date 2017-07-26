@@ -1,3 +1,5 @@
+#!/usr/local/bin/lsc
+
 require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls]>
 
 #### global variables (with default values)
@@ -12,7 +14,7 @@ opt =
   min-freq: 5
   min-supp: 3
   path: res: \../res src: \../src
-  theme: \PPI
+  theme: \NER
 <<< require \node-getopt .create [
   * [\a , \action=ARG     , 'specify operation']
   * [\b , \blacklist=ARG+ , 'push subject id in blacklist']
@@ -20,7 +22,7 @@ opt =
   * [\F , \fixedSupp      , 'set for integrating results exactly satisfy the required support (default: more than minimum support)']
   * [\h , \help           , 'show this help']
   * [\t , \maxTops=ARG    , 'set maximum amounts of top frequent words in each article to be extracted']
-  * [\T , \theme=ARG      , 'specify theme (default: `PPI`)']
+  * [\T , \theme=ARG      , "specify theme (default: `#{opt.theme}`)"]
 ] .bind-help '\nUsage: lsc ans.ls\n[[OPTIONS]]\n' .parse-system!options
 
 res =
@@ -423,3 +425,5 @@ switch opt.action
   sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
 | _ then ERR 'No corresponding operation'
+
+# vi:et:ft=ls
