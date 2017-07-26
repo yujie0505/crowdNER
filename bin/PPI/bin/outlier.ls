@@ -53,7 +53,7 @@ function labeler-stc-score
 
 #######################################################################################
 
-score = {}
+rlt = outlier-score: [] subjects: []
 
 for sid, info of res.sub.personal
   [labeler-score, num-submits] = [0] * 2
@@ -66,7 +66,7 @@ for sid, info of res.sub.personal
         labeler-score += labeler-stc-score stc, res.rlt.box1.labeled-stc[pmid][stcid]
         num-submits++
 
-  score[sid] = labeler-score / num-submits
-  console.log score[sid]
+  rlt.subjects.push sid
+  rlt.outlier-score.push labeler-score / num-submits
 
-fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/outlier.json" JSON.stringify score, null 2
+fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/outlier.json" JSON.stringify rlt, null 2
