@@ -116,12 +116,18 @@ switch opt.action
 
   for md in fs.readdir-sync "#{opt.path.src}/words/checked/"
     if /^NER/ is md
+
+      # each category of NE is separated by a pair of comma and space, ex: ### CDK9 {protein, kinase}
+
       for item in fs.read-file-sync "#{opt.path.src}/words/checked/#md" \utf-8 .match /###.*/g
         word = item.match /###\s(.+?)\s/ .1
         if /{(.+)}/ is item then (that.1 / ', ').map -> res.NER.named-entity[it][word] = true
         else                     res.nor[word] = true
 
     else if /^PPI/ is md
+
+      # integrate the results into one result file for each article, and the checked result must be "<span style='background-color: lightblue;'>{{ event words }}</span>"
+
       md = fs.read-file-sync "#{opt.path.src}/words/checked/#md" \utf-8
       art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#{pmid = md.match /##\s(\d+)\n/ .1}" \utf-8
       ans = gs-answer.box1[pmid] ?= {}
