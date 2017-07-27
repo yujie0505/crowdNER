@@ -39,7 +39,6 @@ opt =
   * [\s , \suppRequired=ARG , "set the required support for each labeled sentence (default: #{opt.supp-required})"]
   * [\T , \theme=ARG        , "specify theme (default: `#{opt.theme}`)"]
 ] .bind-help '\nUsage: lsc sim.ls\n[[OPTIONS]]\n' .parse-system!options
-
 opt.supp-required = parseInt opt.supp-required
 
 #### utility
@@ -58,11 +57,12 @@ gs-answer   = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf
 mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
 stc-value   = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
 
-average-verify-rlt = {}
-for sim-category in opt.simulation[opt.theme]
+average-verify-rlt = if fs.exists-sync file-path = "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" then JSON.parse fs.read-file-sync file-path, \utf-8 else {}
 
-  if not fs.exists-sync "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}"
-    fs.mkdir-sync "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}"
+for sim-category in opt.simulation[opt.theme]
+  continue if average-verify-rlt["TPR_#{sim-category.title}"]
+
+  fs.mkdir-sync dir-path if not fs.exists-sync dir-path = "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}"
 
   average-verify-rlt["TPR_#{sim-category.title}"] = {}
 
@@ -109,6 +109,7 @@ for sim-category in opt.simulation[opt.theme]
 
       sim-result.verification[sim-volume] = {}
       average-verify-rlt["TPR_#{sim-category.title}"][sim-volume] ?= {}
+
       for min-conf in opt.min-conf
         verify-rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
         mark-rlt = crowd.integrate-fixed opt.theme, stc-value, sim-volume, min-conf, sim-result.labeled-stc, verify-rlt
