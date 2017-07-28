@@ -19,17 +19,6 @@ res =
 
 #### utility
 
-function label-amounts sub-rlt, integrated-rlt
-  #! need to be discuss
-
-  # difference of amounts of labeled result between independent subject and others
-
-  total-labeled-protein-words = 0
-  for , labels of integrated-rlt.labels
-    total-labeled-protein-words++ if labels.protein > labels.event
-
-  Object.keys(sub-rlt.protein).length - total-labeled-protein-words
-
 function label-consistency sub-rlt, integrated-rlt
 
   # consistency of labeled result between independent subject and others
@@ -53,10 +42,10 @@ function labeler-stc-score
 
 #######################################################################################
 
-rlt = outlier_score: [] subjects: []
+verify-rlt = []
 
 for sid, info of res.sub.personal
-  [labeler-score, num-submits] = [0] * 2
+  [labeler-score, num-stcs] = [0] * 2
 
   for eid in info.expID
     for pmid, stcs of res.rlt.box1.subject[eid]
@@ -64,9 +53,8 @@ for sid, info of res.sub.personal
         continue if opt.min-supp > res.rlt.box1.labeled-stc[pmid][stcid].supp
 
         labeler-score += labeler-stc-score stc, res.rlt.box1.labeled-stc[pmid][stcid]
-        num-submits++
+        num-stcs++
 
-  rlt.subjects.push sid
-  rlt.outlier_score.push labeler-score / num-submits
+  verify-rlt.push {sid} <<< score: labeler-score / num-stcs
 
-fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/outlier.json" JSON.stringify rlt, null 2
+fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/labeler-score.json" JSON.stringify verify-rlt, null 2

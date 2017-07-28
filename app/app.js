@@ -45,18 +45,23 @@ const buildHorizontalLine = (value, size) => {
 
 switch (opt.show_result) {
   case 'subjects':
-    const outlier = require(`./res/verify/${opt.theme}/outlier.json`)
+    const scores = [], subjects = []
 
-    const data = { name: "Subject's Outlier Score", y: outlier.outlier_score }
-    Plotly.newPlot('subjects_outlier_score_boxPlot', [ Object.assign(data, opt.box_plot) ], opt.layout)
+    for (let labeler of require(`./res/verify/${opt.theme}/labeler-score.json`)) {
+      scores.push(labeler.score)
+      subjects.push(labeler.sid)
+    }
 
-    const statistics = document.getElementById('subjects_outlier_score_boxPlot').calcdata[0][0]
-    Plotly.newPlot('subjects_outlier_score_scatterPlot', [
-      Object.assign(data, { mode: 'markers', type: 'scatter', x: outlier.subjects }),
-      Object.assign({ name: 'Double StdDev Minimum', x: outlier.subjects, y: buildHorizontalLine((statistics.mean - 2 * statistics.sd), outlier.subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Double StdDev Maximum', x: outlier.subjects, y: buildHorizontalLine((statistics.mean + 2 * statistics.sd), outlier.subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Box Plot Minimum',      x: outlier.subjects, y: buildHorizontalLine(statistics.lf, outlier.subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Box Plot Maximum',      x: outlier.subjects, y: buildHorizontalLine(statistics.uf, outlier.subjects.length) }, opt.scatter_plot)
+    const data = { name: 'Labeler Score', y: scores }
+    Plotly.newPlot('labeler_score_boxPlot', [ Object.assign(data, opt.box_plot) ], opt.layout)
+
+    const statistics = document.getElementById('labeler_score_boxPlot').calcdata[0][0]
+    Plotly.newPlot('labeler_score_scatterPlot', [
+      Object.assign(data, { mode: 'markers', type: 'scatter', x: subjects }),
+      Object.assign({ name: 'Double StdDev Minimum', x: subjects, y: buildHorizontalLine((statistics.mean - 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Double StdDev Maximum', x: subjects, y: buildHorizontalLine((statistics.mean + 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Box Plot Minimum',      x: subjects, y: buildHorizontalLine(statistics.lf, subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Box Plot Maximum',      x: subjects, y: buildHorizontalLine(statistics.uf, subjects.length) }, opt.scatter_plot)
     ], opt.layout)
 
     break;
@@ -67,7 +72,7 @@ switch (opt.show_result) {
     const verify_rlt = { fScore: {}, pre: {}, rec: {} }
     for (let support in verification.crowdSourcing) {
       for (let confidence in verification.crowdSourcing[support]) {
-        if ('0.3' === confidence || '0.4' === confidence) continue
+        if ('NER' === opt.theme && ('0.3' === confidence || '0.4' === confidence)) continue
 
         for (let statistics in verify_rlt) {
           let trace = verify_rlt[statistics][confidence] ? verify_rlt[statistics][confidence] : verify_rlt[statistics][confidence] = { name: `Confidence = ${confidence}`, x: [], y: [] }
