@@ -1,9 +1,14 @@
+#!/usr/local/bin/lsc
+
 require! <[fs]>
 
 #### global variables (with default values)
 
 opt =
-  min-supp: 3
+  entity:
+    NER: <[protein]>
+    PPI: <[event protein]>
+  min-supp: 4
   path: res: \../res src: \../src
   theme: \NER
 <<< require \node-getopt .create [
@@ -24,16 +29,18 @@ function label-consistency sub-rlt, integrated-rlt
   # consistency of labeled result between independent subject and others
 
   _score = 0; words = {}
+  stc-supp = integrated-rlt.supp - 1 # exclude the verifying subject
 
-  for wid of sub-rlt.protein
-    words[wid] = true
-    _score += integrated-rlt.labels[wid].protein / integrated-rlt.supp
+  for entity in opt.entity[opt.theme]
+    for wid of sub-rlt[entity]
+      words[wid] = true
+      _score += (integrated-rlt.labels[wid][entity] - 1) / stc-supp
 
   for wid, labels of integrated-rlt.labels
-    continue if words[wid] or not labels.protein
+    continue if words[wid] or (\NER is opt.theme and not labels.protein)
 
     words[wid] = true
-    _score += (integrated-rlt.supp - labels.protein) / integrated-rlt.supp
+    _score += (stc-supp - opt.entity[opt.theme].reduce (_labels, entity) -> (_labels + labels[entity]), 0) / stc-supp
 
   _score / Object.keys(words).length || 1
 
@@ -58,3 +65,5 @@ for sid, info of res.sub.personal
   verify-rlt.push {sid} <<< score: labeler-score / num-stcs
 
 fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/labeler-score.json" JSON.stringify verify-rlt, null 2
+
+# vi:et:ft=ls
