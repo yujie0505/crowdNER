@@ -30,6 +30,7 @@ opt =
       * title: \0.65          TPR: { mean: 0.65   std-dev: 0 }      FPR: { mean: 0.0449 std-dev: 0.0227 }
       * title: \0.70          TPR: { mean: 0.70   std-dev: 0 }      FPR: { mean: 0.0449 std-dev: 0.0227 }
       * title: \ori           TPR: { mean: 0.5616 std-dev: 0.2110 } FPR: { mean: 0.0449 std-dev: 0.0227 }
+      * title: \removeOutlier TPR: { mean: 0.5736 std-dev: 0.2097 } FPR: { mean: 0.0240 std-dev: 0.0137 }
     repeated: 100
     volume: min: 1 max: 499 step: 2
   supp-required: 3
