@@ -10,7 +10,6 @@ import './app.sass'
 import './index.pug'
 
 ///////////////////////////////////////////////////////
-
 const opt = {
   box_plot: {
     boxmean   : 'sd',
@@ -44,28 +43,6 @@ const buildHorizontalLine = (value, size) => {
 ///////////////////////////////////////////////////////
 
 switch (opt.show_result) {
-  case 'subjects':
-    const scores = [], subjects = []
-
-    for (let labeler of require(`./res/verify/${opt.theme}/labeler-score.json`)) {
-      scores.push(labeler.score)
-      subjects.push(labeler.sid)
-    }
-
-    const data = { name: 'Labeler Score', y: scores }
-    Plotly.newPlot('labeler_score_boxPlot', [ Object.assign(data, opt.box_plot) ], opt.layout)
-
-    const statistics = document.getElementById('labeler_score_boxPlot').calcdata[0][0]
-    Plotly.newPlot('labeler_score_scatterPlot', [
-      Object.assign(data, { mode: 'markers', type: 'scatter', x: subjects }),
-      Object.assign({ name: 'Double StdDev Minimum', x: subjects, y: buildHorizontalLine((statistics.mean - 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Double StdDev Maximum', x: subjects, y: buildHorizontalLine((statistics.mean + 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Box Plot Minimum',      x: subjects, y: buildHorizontalLine(statistics.lf, subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Box Plot Maximum',      x: subjects, y: buildHorizontalLine(statistics.uf, subjects.length) }, opt.scatter_plot)
-    ], opt.layout)
-
-    break;
-
   case 'crowdSourcing':
     const verification = require(`./res/verify/${opt.theme}/verification.${location.search.match(/source=(\w+)/)[1]}.json`)
 
@@ -112,6 +89,28 @@ switch (opt.show_result) {
     traces.push(Object.assign({ name: 'expert', x: traces[0].x, y: buildHorizontalLine(0.9, traces[0].x.length) }, opt.scatter_plot))
 
     Plotly.newPlot('simulation_verification', traces, Object.assign({ xaxis: { title: 'Simulation Amounts' }, yaxis: { range: [0, 1], title: 'Sensitivity' } }, opt.layout))
+
+    break;
+
+  case 'subjects':
+    const scores = [], subjects = []
+
+    for (let labeler of require(`./res/verify/${opt.theme}/labeler-score.json`)) {
+      scores.push(labeler.score)
+      subjects.push(labeler.sid)
+    }
+
+    const data = { name: 'Labeler Score', y: scores }
+    Plotly.newPlot('labeler_score_boxPlot', [ Object.assign(data, opt.box_plot) ], opt.layout)
+
+    const statistics = document.getElementById('labeler_score_boxPlot').calcdata[0][0]
+    Plotly.newPlot('labeler_score_scatterPlot', [
+      Object.assign(data, { mode: 'markers', type: 'scatter', x: subjects }),
+      Object.assign({ name: 'Double StdDev Minimum', x: subjects, y: buildHorizontalLine((statistics.mean - 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Double StdDev Maximum', x: subjects, y: buildHorizontalLine((statistics.mean + 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Box Plot Minimum',      x: subjects, y: buildHorizontalLine(statistics.lf, subjects.length) }, opt.scatter_plot),
+      Object.assign({ name: 'Box Plot Maximum',      x: subjects, y: buildHorizontalLine(statistics.uf, subjects.length) }, opt.scatter_plot)
+    ], opt.layout)
 
     break;
 }
