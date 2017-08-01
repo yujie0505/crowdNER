@@ -10,17 +10,23 @@ import './app.sass'
 import './index.pug'
 
 ///////////////////////////////////////////////////////
+
 const opt = {
   box_plot: {
     boxmean   : 'sd',
     boxpoints : 'Outliers',
     type      : 'box'
   },
-  colors: ['9d8df1', '7ebdc3', 'fbacbe', 'a18276'],
+  colors: ['ae6568', '7ebdc3', 'b5dbac'],
   layout: {
     autosize : true,
     height   : 700,
     legend   : { orientation: 'h', y: -0.12 }
+  },
+  quantity_quality: {
+    estimation_point: { quantity: 20, quality: 0.62 },
+    xaxis: { min: 0, max: 500 },
+    yaxis: { min: 0.5, max: 0.8 }
   },
   scatter_plot: {
     mode: 'lines',
@@ -70,7 +76,28 @@ switch (opt.show_result) {
       Plotly.newPlot(`crowdSourcing_verification_${titles[statistics]}`, traces, Object.assign({ title: `CrowdSourcing Verification ${titles[statistics]}` }, opt.layout))
     }
 
-    break;
+    break
+
+  case 'quantity-quality':
+    const quantity = [], quality = []
+    require(`./res/verify/${opt.theme}/quantity-quality.json`).map(it => {
+      quantity.push(it.quantity)
+      quality.push(it.quality)
+    })
+
+    let layout = {
+      showlegend: false,
+      xaxis: { range: [opt.quantity_quality.xaxis.min, opt.quantity_quality.xaxis.max], title: 'Quantity' },
+      yaxis: { range: [opt.quantity_quality.yaxis.min, opt.quantity_quality.yaxis.max], title: 'Quality' }
+    }
+
+    Plotly.newPlot('quantity_quality', [
+      { marker: { color: opt.colors[0] }, type: 'scatter', x: [opt.quantity_quality.estimation_point.quantity], y: [opt.quantity_quality.estimation_point.quality] },
+      Object.assign({ marker: { color: opt.colors[1] }, x: quantity, y: quality }, opt.scatter_plot),
+      Object.assign({ marker: { color: opt.colors[2] }, fill: 'tonexty', x: quantity, y: buildHorizontalLine(quality[quality.length - 1], quality.length) }, opt.scatter_plot)
+    ], Object.assign(layout, opt.layout))
+
+    break
 
   case 'simulation':
     const simulation = require(`./res/verify/${opt.theme}/sim-verification.json`)
@@ -90,15 +117,14 @@ switch (opt.show_result) {
 
     Plotly.newPlot('simulation_verification', traces, Object.assign({ xaxis: { title: 'Simulation Amounts' }, yaxis: { range: [0, 1], title: 'Sensitivity' } }, opt.layout))
 
-    break;
+    break
 
   case 'subjects':
     const scores = [], subjects = []
-
-    for (let labeler of require(`./res/verify/${opt.theme}/labeler-score.json`)) {
-      scores.push(labeler.score)
-      subjects.push(labeler.sid)
-    }
+    require(`./res/verify/${opt.theme}/labeler-score.json`).map(it => {
+      scores.push(it.score)
+      subjects.push(it.sid)
+    })
 
     const data = { name: 'Labeler Score', y: scores }
     Plotly.newPlot('labeler_score_boxPlot', [ Object.assign(data, opt.box_plot) ], opt.layout)
@@ -112,5 +138,5 @@ switch (opt.show_result) {
       Object.assign({ name: 'Box Plot Maximum',      x: subjects, y: buildHorizontalLine(statistics.uf, subjects.length) }, opt.scatter_plot)
     ], opt.layout)
 
-    break;
+    break
 }
