@@ -3,9 +3,10 @@
 require! <[fs]>
 
 opt =
-  confidence : 0.5
-  expert-TPR : 0.9
-  quality    : [0.52 to 0.81 by 0.005]
+  confidence: 0.5
+  expert-TPR: 0.9
+  path: res: \../res src: \../src
+  quality: [0.52 to 0.81 by 0.005]
 
 function C n, r then if 1 is r then n else (n / r) * C --n, --r
 
@@ -25,6 +26,6 @@ rlt = opt.quality.map (quality) ->
 
   {quality, quantity}
 
-fs.write-file-sync \../res/verify/NER/quantity-quality.json JSON.stringify rlt, null 2
+fs.write-file-sync "#{opt.path.res}/verify/NER/quantity-quality.json" JSON.stringify rlt, null 2
 
 # vi:et:ft=ls
