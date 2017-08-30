@@ -1,0 +1,43 @@
+#!/usr/local/bin/lsc
+
+require! <[fs]>
+
+opt =
+  min-support: 2
+  path: res: \../res src: \../src tools: \../tools
+
+gs-answer = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
+
+hybrid-rlt = {}
+verify-rlt = tp: 0 fp: 0 tn: 0 fn: 0
+
+for tool in fs.readdir-sync "#{opt.path.tools}/"
+  for pmid, stcs of JSON.parse fs.read-file-sync "#{opt.path.tools}/#tool/predict.mia.json" \utf-8
+    for stcid, stc of stcs
+      for wid, label of stc
+        continue if -1 is label
+
+        hybrid-rlt[pmid] ?= {}
+        hybrid-rlt[pmid][stcid] ?= {}
+        hybrid-rlt[pmid][stcid][wid] ?= 0
+        hybrid-rlt[pmid][stcid][wid]++
+
+for pmid, stcs of gs-answer.box1
+  for stcid, stc of stcs
+    for wid, label of stc
+      continue if 0 is label
+
+      if hybrid-rlt[pmid][stcid] and hybrid-rlt[pmid][stcid][wid] >= opt.min-support
+        if 1 is label then verify-rlt.tp++
+        else               verify-rlt.fp++
+      else
+        if 1 is label then verify-rlt.fn++
+        else               verify-rlt.tn++
+
+verify-rlt.pre = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fp)
+verify-rlt.rec = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fn)
+verify-rlt.f-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + verify-rlt.rec)
+
+console.log verify-rlt
+
+# vi:et:ft=ls
