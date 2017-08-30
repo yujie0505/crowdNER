@@ -1,0 +1,30 @@
+#!/usr/local/bin/lsc
+
+require! <[fs]>
+
+opt =
+  confidence : 0.5
+  expert-TPR : 0.9
+  quality    : [0.52 to 0.81 by 0.005]
+
+function C n, r then if 1 is r then n else (n / r) * C --n, --r
+
+############################################
+
+rlt = opt.quality.map (quality) ->
+  quality-P = quality
+  quality-N = 1 - quality-P
+
+  quantity = 0
+
+  while true
+    min-support = if ($1 = ++quantity * opt.confidence) is ($2 = Math.ceil $1) then ++$2 else $2
+    crowd-TPR = [min-support to quantity].reduce (_crowd-TPR, support) -> (_crowd-TPR += (C quantity, support) * quality-P ** support * quality-N ** (quantity - support)), 0
+
+    break if crowd-TPR >= opt.expert-TPR
+
+  {quality, quantity}
+
+fs.write-file-sync \../res/verify/NER/quantity-quality.json JSON.stringify rlt, null 2
+
+# vi:et:ft=ls
