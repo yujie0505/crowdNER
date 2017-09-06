@@ -24,7 +24,7 @@ opt =
   * [\s , \suppRequired=ARG , "set the required support for each labeled sentence (default: #{opt.supp-required})"]
   * [\T , \theme=ARG        , "specify theme (default: `#{opt.theme}`)"]
 ] .bind-help '\nUsage: lsc sim.ls\n[[OPTIONS]]\n' .parse-system!options
-opt.simulation <<< require \./sim.opt.ls
+opt.simulation <<< require \./.sim.opt.ls
 opt.supp-required = parseInt opt.supp-required
 
 #### utility
