@@ -12,6 +12,8 @@ opt =
     light-red : '\033[1;31m'
     reset     : '\033[0m'
     yellow    : '\033[1;33m'
+  coverage-of-easy-word:
+    negative: 0.9345
   min-conf: [0.3 to 1 by 0.1]
   path: res: \../res src: \../src
   simulation:
@@ -40,19 +42,34 @@ opt.supp-required = parseInt opt.supp-required
 #######################################################################################
 
 gs-answer   = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
-mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
 stc-value   = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
 
 average-verify-rlt = if fs.exists-sync file-path = "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" then JSON.parse fs.read-file-sync file-path, \utf-8 else {}
 
+choose-as-easy-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.coverage-of-easy-word.negative * 100), _prob]
+
 for sim-category in opt.simulation[opt.theme]
-  continue if average-verify-rlt["TPR_#{sim-category.title}"]
+  continue if average-verify-rlt[sim-category.title]
 
-  fs.mkdir-sync dir-path if not fs.exists-sync dir-path = "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}"
+  fs.mkdir-sync dir-path if not fs.exists-sync dir-path = "#{opt.path.res}/sim/#{opt.theme}/#{sim-category.title}"
 
-  average-verify-rlt["TPR_#{sim-category.title}"] = {}
+  average-verify-rlt[sim-category.title] = {}
 
   for sim-exp-id til opt.simulation.repeated
+
+    # build easy words
+
+    easy-words = {}
+
+    for pmid, stcs of gs-answer.box1
+      for stcid, stc of stcs
+        for wid, label of stc
+          continue if opt.code.ignored is label or opt.code.protein is label or not choose-as-easy-word! #!
+
+          easy-words[pmid] ?= {}
+          easy-words[pmid][stcid] ?= {}
+          easy-words[pmid][stcid][wid] = true
+
     sim-result = subject: {} labeled-stc: {} verification: {}
 
     for sim-volume from opt.simulation.volume.min to opt.simulation.volume.max by opt.simulation.volume.step
@@ -79,7 +96,7 @@ for sim-category in opt.simulation[opt.theme]
             sim-stc-labeled.supp++
 
             for wid, label of stc
-              continue if opt.code.ignored is label
+              continue if opt.code.ignored is label or (easy-words[pmid][stcid] and easy-words[pmid][stcid][wid]) #!
 
               if      opt.code.event   is label and pick-tp! then label-picked = \event
               else if opt.code.protein is label and pick-tp! then label-picked = \protein
@@ -94,7 +111,7 @@ for sim-category in opt.simulation[opt.theme]
       # verification of integrated sim-result
 
       sim-result.verification[sim-volume] = {}
-      average-verify-rlt["TPR_#{sim-category.title}"][sim-volume] ?= {}
+      average-verify-rlt[sim-category.title][sim-volume] ?= {}
 
       for min-conf in opt.min-conf
         verify-rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
@@ -106,16 +123,16 @@ for sim-category in opt.simulation[opt.theme]
         verify-rlt.F-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + verify-rlt.rec)
 
         sim-result.verification[sim-volume][(min-conf = min-conf.to-fixed 1)] = verify-rlt
-        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf] ?= pre: 0 rec: 0 F-score: 0
-        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf].pre += verify-rlt.pre
-        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf].rec += verify-rlt.rec
-        average-verify-rlt["TPR_#{sim-category.title}"][sim-volume][min-conf].F-score += verify-rlt.F-score
+        average-verify-rlt[sim-category.title][sim-volume][min-conf] ?= pre: 0 rec: 0 F-score: 0
+        average-verify-rlt[sim-category.title][sim-volume][min-conf].pre += verify-rlt.pre
+        average-verify-rlt[sim-category.title][sim-volume][min-conf].rec += verify-rlt.rec
+        average-verify-rlt[sim-category.title][sim-volume][min-conf].F-score += verify-rlt.F-score
 
-    console.log "[#{opt.color.dark-gray}#{(new Date!to-string! / ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}TPR_#{sim-category.title} #{opt.color.light-red}#{sim-exp-id + 1}#{opt.color.reset}/#{opt.simulation.repeated}"
+    console.log "[#{opt.color.dark-gray}#{(new Date!to-string! / ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}#{sim-category.title} #{opt.color.light-red}#{sim-exp-id + 1}#{opt.color.reset}/#{opt.simulation.repeated}"
 
-    fs.write-file-sync "#{opt.path.res}/sim/#{opt.theme}/TPR_#{sim-category.title}/sim_#sim-exp-id.json" JSON.stringify sim-result, null 2
+    fs.write-file-sync "#{opt.path.res}/sim/#{opt.theme}/#{sim-category.title}/sim_#sim-exp-id.json" JSON.stringify sim-result, null 2
 
-  for , confs of average-verify-rlt["TPR_#{sim-category.title}"]
+  for , confs of average-verify-rlt[sim-category.title]
     for , verify-rlt of confs
       verify-rlt.pre /= opt.simulation.repeated
       verify-rlt.rec /= opt.simulation.repeated
