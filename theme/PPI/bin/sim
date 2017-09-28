@@ -12,8 +12,6 @@ opt =
     light-red : '\033[1;31m'
     reset     : '\033[0m'
     yellow    : '\033[1;33m'
-  coverage-of-easy-word:
-    negative: 0.9345
   min-conf: [0.3 to 1 by 0.1]
   path: res: \../res src: \../src
   simulation:
@@ -46,9 +44,9 @@ stc-value   = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json"
 
 average-verify-rlt = if fs.exists-sync file-path = "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" then JSON.parse fs.read-file-sync file-path, \utf-8 else {}
 
-choose-as-easy-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.coverage-of-easy-word.negative * 100), _prob]
+choose-as-easy-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.simulation[opt.theme].coverage-of-easy-word.negative * 100), _prob]
 
-for sim-category in opt.simulation[opt.theme]
+for sim-category in opt.simulation[opt.theme].sim-category
   continue if average-verify-rlt[sim-category.title]
 
   fs.mkdir-sync dir-path if not fs.exists-sync dir-path = "#{opt.path.res}/sim/#{opt.theme}/#{sim-category.title}"
@@ -64,7 +62,10 @@ for sim-category in opt.simulation[opt.theme]
     for pmid, stcs of gs-answer.box1
       for stcid, stc of stcs
         for wid, label of stc
-          continue if opt.code.ignored is label or opt.code.protein is label or not choose-as-easy-word! #!
+          if \NER is opt.theme
+            continue if opt.code.ignored is label or opt.code.protein is label or not choose-as-easy-word!
+          else
+            continue if opt.code.normal isnt label or not choose-as-easy-word!
 
           easy-words[pmid] ?= {}
           easy-words[pmid][stcid] ?= {}
@@ -96,7 +97,7 @@ for sim-category in opt.simulation[opt.theme]
             sim-stc-labeled.supp++
 
             for wid, label of stc
-              continue if opt.code.ignored is label or (easy-words[pmid][stcid] and easy-words[pmid][stcid][wid]) #!
+              continue if opt.code.ignored is label or (easy-words[pmid][stcid] and easy-words[pmid][stcid][wid])
 
               if      opt.code.event   is label and pick-tp! then label-picked = \event
               else if opt.code.protein is label and pick-tp! then label-picked = \protein
