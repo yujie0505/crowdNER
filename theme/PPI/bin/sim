@@ -49,8 +49,6 @@ choose-as-easy-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.si
 for sim-category in opt.simulation[opt.theme].sim-category
   continue if average-verify-rlt[sim-category.title]
 
-  fs.mkdir-sync dir-path if not fs.exists-sync dir-path = "#{opt.path.res}/sim/#{opt.theme}/#{sim-category.title}"
-
   average-verify-rlt[sim-category.title] = {}
 
   for sim-exp-id til opt.simulation.repeated
@@ -130,8 +128,6 @@ for sim-category in opt.simulation[opt.theme].sim-category
         average-verify-rlt[sim-category.title][sim-volume][min-conf].F-score += verify-rlt.F-score
 
     console.log "[#{opt.color.dark-gray}#{(new Date!to-string! / ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}#{sim-category.title} #{opt.color.light-red}#{sim-exp-id + 1}#{opt.color.reset}/#{opt.simulation.repeated}"
-
-    fs.write-file-sync "#{opt.path.res}/sim/#{opt.theme}/#{sim-category.title}/sim_#sim-exp-id.json" JSON.stringify sim-result, null 2
 
   for , confs of average-verify-rlt[sim-category.title]
     for , verify-rlt of confs
