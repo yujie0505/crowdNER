@@ -7,8 +7,8 @@ require! <[edit-google-spreadsheet fs ../../../lib/crowd.ls ../../../lib/math.js
 opt =
   blacklist: []
   code: event: 2 ignored: 0 normal: -1 protein: 1
-  debug: true
-  fixed-supp: false
+  debug: on
+  fixed-supp: off
   google: JSON.parse fs.read-file-sync \../../../option.json \utf-8 .google
   max-tops: 30
   min-freq: 5
@@ -466,19 +466,23 @@ switch opt.action
               if sub-mark-rlt.protein[wid] then sub-verify-rlt.tp++
               else                              sub-verify-rlt.fn++
             else
-              continue if not mark-result.box1.labeled-stc[pmid][stcid].labels[wid] or not mark-result.box1.labeled-stc[pmid][stcid].labels[wid].protein
+              continue if not mark-result.box1.labeled-stc[pmid][stcid].labels[wid] or not mark-result.box1.labeled-stc[pmid][stcid].labels[wid].protein #! NER
 
               if sub-mark-rlt.protein[wid] then sub-verify-rlt.fp++
               else                              sub-verify-rlt.tn++
 
-  TPR = []; FPR = []
+  f-score = []; pre = []; rec = []; FPR = []
 
   for , rlt of verify-rlt
-    TPR.push rlt.tp / (rlt.tp + rlt.fn)
+    rec.push _rec = rlt.tp / (rlt.tp + rlt.fn)
+    pre.push _pre = rlt.tp / (rlt.tp + rlt.fp)
+    f-score.push 2 * _pre * _rec / (_pre + _rec)
     FPR.push rlt.fp / (rlt.fp + rlt.tn)
 
-  console.log "TPR: mean = #{TPR-mean = math.mean TPR}, std-dev = #{math.standard-deviation TPR, TPR-mean}"
   console.log "FPR: mean = #{FPR-mean = math.mean FPR}, std-dev = #{math.standard-deviation FPR, FPR-mean}"
+  console.log "TPR: mean = #{TPR-mean = math.mean rec}, std-dev = #{math.standard-deviation rec, TPR-mean}"
+  console.log "pre: mean = #{pre-mean = math.mean pre}, std-dev = #{math.standard-deviation pre, pre-mean}"
+  console.log "F-score: mean = #{math.mean f-score}"
 
 | _ then ERR 'No corresponding operation'
 
