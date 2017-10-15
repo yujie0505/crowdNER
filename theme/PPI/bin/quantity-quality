@@ -3,26 +3,47 @@
 require! <[fs]>
 
 opt =
-  confidence: 0.5
-  expert-TPR: 0.9
-  path: res: \../res src: \../src
-  quality: [0.52 to 0.81 by 0.005]
+  min-conf: 0.5
+  path: res: \../res
+  quality: [5200 to 8000 by 10]
+  target-quality: 0.8594
+  theme: \NER
+  words: negative: 39745 positive: 2556
+<<< coverage-of-easy-word: require(\./.sim.opt.ls)[opt.theme].coverage-of-easy-word
 
 function C n, r then if 1 is r then n else (n / r) * C --n, --r
 
 ############################################
 
+alpha = opt.words.positive / opt.words.negative / (1 - opt.coverage-of-easy-word.negative)
+non-trivial-negative-words = (1 - opt.coverage-of-easy-word.negative) * opt.words.negative
+
+factors = {}
+
 rlt = opt.quality.map (quality) ->
-  quality-P = quality
-  quality-N = 1 - quality-P
+  quality /= 10000
 
-  quantity = 0
+  # assume quality = f-score = precision = recall (TPR)
 
-  while true
-    min-support = if ($1 = ++quantity * opt.confidence) is ($2 = Math.ceil $1) then ++$2 else $2
-    crowd-TPR = [min-support to quantity].reduce (_crowd-TPR, support) -> (_crowd-TPR += (C quantity, support) * quality-P ** support * quality-N ** (quantity - support)), 0
+  ntFPR = alpha * (1 - quality) # ntFPR = (P / N) * (1 / (1 - trivial word ratio)) * ((1 - precision) / precision) * TPR
 
-    break if crowd-TPR >= opt.expert-TPR
+  quantity = 1
+
+  while true, quantity += 2
+    min-supp = Math.ceil quantity * opt.min-conf
+
+    [_recall, _ntFPR] = [0] * 2
+
+    for supp in [min-supp to quantity]
+      factors[quantity] ?= {}
+      factor = factors[quantity][supp] ?= beta: C(quantity, supp), gamma: quantity - supp
+
+      _recall += factor.beta * quality ** supp * (1 - quality) ** factor.gamma
+      _ntFPR  += factor.beta * ntFPR   ** supp * (1 - ntFPR)   ** factor.gamma
+
+    _precision = (TP = opt.words.positive * _recall) / (TP + non-trivial-negative-words * _ntFPR)
+
+    break if opt.target-quality <= 2 * _precision * _recall / (_precision + _recall)
 
   {quality, quantity}
 
