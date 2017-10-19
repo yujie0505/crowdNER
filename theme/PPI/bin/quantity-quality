@@ -5,24 +5,22 @@ require! <[fs]>
 opt =
   min-conf: 0.5
   path: res: \../res
-  quality: [5200 to 8000 by 10]
+  quality: [5200 to 8000 by 10].map -> it / 10000
   target-quality: 0.8594
   theme: \NER
   words: negative: 39745 positive: 2556
-<<< coverage-of-easy-word: require(\./.sim.opt.ls)[opt.theme].coverage-of-easy-word
+<<< trivial-word-ratio: require(\./.sim.opt.ls)[opt.theme].trivial-word-ratio
 
 function C n, r then if 1 is r then n else (n / r) * C --n, --r
 
 ############################################
 
-alpha = opt.words.positive / opt.words.negative / (1 - opt.coverage-of-easy-word.negative)
-non-trivial-negative-words = (1 - opt.coverage-of-easy-word.negative) * opt.words.negative
+alpha = opt.words.positive / opt.words.negative / (1 - opt.trivial-word-ratio.negative)
+non-trivial-negative-words = (1 - opt.trivial-word-ratio.negative) * opt.words.negative
 
 factors = {}
 
 rlt = opt.quality.map (quality) ->
-  quality /= 10000
-
   # assume quality = f-score = precision = recall (TPR)
 
   ntFPR = alpha * (1 - quality) # ntFPR = (P / N) * (1 / (1 - trivial word ratio)) * ((1 - precision) / precision) * TPR
@@ -32,7 +30,7 @@ rlt = opt.quality.map (quality) ->
   while true, quantity += 2
     min-supp = Math.ceil quantity * opt.min-conf
 
-    [_recall, _ntFPR] = [0] * 2
+    [_recall, _ntFPR] = [0, 0]
 
     for supp in [min-supp to quantity]
       factors[quantity] ?= {}
