@@ -14,6 +14,7 @@
     "extract-loader": "^0.1.0",
     "file-loader": "^0.10.1",
     "html-loader": "^0.4.5",
+    "napajs": "^0.1.4",
     "node-getopt": "^0.2.3",
     "node-sass": "^4.5.2",
     "postcss-loader": "^2.0.5",
