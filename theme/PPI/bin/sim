@@ -1,6 +1,6 @@
 #!/usr/local/bin/lsc
 
-require! <[fs ../../../lib/crowd.ls ../../../lib/math.js]>
+require! <[fs napajs]>
 
 #### global variables (with default values)
 
@@ -14,12 +14,12 @@ opt =
     yellow    : '\033[1;33m'
   min-conf: [0.5]
   path: res: \../res src: \../src
+  processor: 4
   qq-plot: off
   quality: [520 to 800 by 5].map -> it / 1000
   simulation:
     repeated: 100
     volume: min: 1 max: 501 step: 2
-  supp-required: 3
   target-category: \no_expert
   target-conf: 0.5
   target-quality: 0.8594
@@ -27,12 +27,21 @@ opt =
   words: negative: 39745 positive: 2556
 <<< require \node-getopt .create [
   * [\h , \help             , 'show this help']
+  * [\p , \processor=ARG    , "set numbers of processor (default: #{opt.processor})"]
   * [\q , \qqPlot           , 'simulate for quantity-quality plot']
-  * [\s , \suppRequired=ARG , "set the required support for each labeled sentence (default: #{opt.supp-required})"]
-  * [\T , \theme=ARG        , "specify theme (default: `#{opt.theme}`)"]
-] .bind-help '\nUsage: lsc sim.ls\n[[OPTIONS]]\n' .parse-system!options
+  * [\t , \theme=ARG        , "specify theme (default: `#{opt.theme}`)"]
+] .bind-help '\nUsage: lsc sim\n[[OPTIONS]]\n' .parse-system!options
 opt.simulation <<< require \./.sim.opt.ls
-opt.supp-required = parseInt opt.supp-required
+
+store = napajs.store.create \counter
+store.set \simExpId 0
+
+zone = napajs.zone.create \zone workers: parseInt opt.processor
+zone.broadcast '''
+  crowd = require('../../../lib/crowd.js')
+  fs    = require('fs')
+  math  = require('../../../lib/math.js')
+'''
 
 if opt.qq-plot
   trivial-word-ratio = opt.simulation[opt.theme].trivial-word-ratio.negative
@@ -43,125 +52,127 @@ if opt.qq-plot
 
     ntFPR = opt.words.positive / opt.words.negative / (1 - trivial-word-ratio) * (1 - quality) / quality * target-category.TPR.mean
 
-    title: "_Quality_#quality" TPR: target-category.TPR, FPR: { mean: ntFPR, std-dev: target-category.FPR.std-dev }
+    title: "_Quality_#quality" TPR: target-category.TPR, FPR: mean: ntFPR, std-dev: target-category.FPR.std-dev
 
 #### utility
 
-!function ERR then throw it
+function simulate sim-category, opt, gs-answer, stc-value
+  [crowd, fs, math] = [global[module-name] for module-name in <[crowd fs math]>]
 
-!function shuffle
-  for i from it.length til 0 by -1
-    t = it[i - 1]
-    it[i - 1] = it[j = Math.floor Math.random! * i]
-    it[j] = t
+  store = global.napa.store.get \counter
+
+  choose-as-trivial-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.simulation[opt.theme].trivial-word-ratio.negative * 100), _prob]
+
+  trivial-words = {}
+
+  for pmid, stcs of gs-answer.box1
+    for stcid, stc of stcs
+      for wid, label of stc
+        if \NER is opt.theme
+          continue if opt.code.ignored is label or opt.code.protein is label or not choose-as-trivial-word!
+        else
+          continue if opt.code.normal isnt label or not choose-as-trivial-word!
+
+        trivial-words[pmid] ?= {}
+        trivial-words[pmid][stcid] ?= {}
+        trivial-words[pmid][stcid][wid] = true
+
+  sim-result = subject: {} labeled-stc: {} verification: {}
+
+  for sim-volume from opt.simulation.volume.min to opt.simulation.volume.max by opt.simulation.volume.step
+    # build simulation data
+
+    for sim-sub-id from Object.keys(sim-result.subject).length til sim-volume
+      rlt = sim-result.subject["_sim_#sim-sub-id"] = {}
+
+      while true then break if (FPR = math.generateGaussianSample sim-category.FPR.mean, sim-category.FPR.std-dev) < 1 and FPR > 0
+      while true then break if (TPR = math.generateGaussianSample sim-category.TPR.mean, sim-category.TPR.std-dev) < 1 and TPR > 0
+
+      pick-fp = math.choose-weighted [0 1] [100 - (FPR = parseInt FPR * 100), FPR]
+      pick-tp = math.choose-weighted [0 1] [100 - (TPR = parseInt TPR * 100), TPR]
+
+      for pmid, stcs of gs-answer.box1
+        rlt[pmid] = {}
+
+        for stcid, stc of stcs
+          sim-stc = rlt[pmid][stcid] = event: {} protein: {}
+
+          sim-art-labeled = sim-result.labeled-stc[pmid] ?= {}
+          sim-stc-labeled = sim-art-labeled[stcid] ?= labels: {} supp: 0
+          sim-stc-labeled.supp++
+
+          for wid, label of stc
+            continue if opt.code.ignored is label or (trivial-words[pmid][stcid] and trivial-words[pmid][stcid][wid])
+
+            if      opt.code.event   is label and pick-tp! then label-picked = \event
+            else if opt.code.protein is label and pick-tp! then label-picked = \protein
+            else if opt.code.normal  is label and pick-fp! then label-picked = \protein
+            else continue
+
+            sim-stc[label-picked][wid] = true
+
+            sim-stc-labeled.labels[wid] ?= event: 0 protein: 0
+            sim-stc-labeled.labels[wid][label-picked]++
+
+    # verification of integrated sim-result
+
+    sim-result.verification[sim-volume] = {}
+
+    for min-conf in opt.min-conf
+      verify-rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
+
+      mark-rlt = crowd.integrate-fixed opt.theme, stc-value, sim-volume, min-conf, sim-result.labeled-stc, verify-rlt
+
+      crowd.verify opt.theme, gs-answer.box1, mark-rlt, verify-rlt
+      verify-rlt.pre = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fp)
+      verify-rlt.rec = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fn)
+      verify-rlt.F-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + verify-rlt.rec)
+
+      sim-result.verification[sim-volume][min-conf.to-fixed 1] = verify-rlt
+
+  store.set \simExpId sim-exp-id = 1 + store.get \simExpId
+
+  sim-exp-id = if 0 is $_ = sim-exp-id % opt.simulation.repeated then 100 else $_
+
+  console.log "[#{opt.color.dark-gray}#{(new Date!to-string!.split ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}#{sim-category.title} #{opt.color.light-red}#sim-exp-id#{opt.color.reset}/#{opt.simulation.repeated}"
+
+  sim-result.verification
 
 #######################################################################################
 
-gs-answer   = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
-stc-value   = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
+gs-answer = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
+stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
 
 average-verify-rlt = if fs.exists-sync file-path = "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" then JSON.parse fs.read-file-sync file-path, \utf-8 else {}
 
-choose-as-easy-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.simulation[opt.theme].trivial-word-ratio.negative * 100), _prob]
+Promise.all opt.simulation[opt.theme].sim-category.map (sim-category) ->
+  return if average-verify-rlt[sim-category.title]
 
-for sim-category in opt.simulation[opt.theme].sim-category
-  continue if average-verify-rlt[sim-category.title]
+  sim-results = [zone.execute simulate, [sim-category, opt, gs-answer, stc-value] for til opt.simulation.repeated]
 
-  average-verify-rlt[sim-category.title] = {}
+  Promise.all sim-results .then (values) ->
+    average-verify-rlt[sim-category.title] = {}
 
-  for sim-exp-id til opt.simulation.repeated
+    for sim-result in values
+      sim-result = JSON.parse sim-result._payload
 
-    # build easy words
+      for supp, confs of sim-result
+        for conf, verify-rlt of confs
+          average-verify-rlt[sim-category.title][supp] ?= {}
+          average-verify-rlt[sim-category.title][supp][conf] ?= pre: 0 rec: 0 F-score: 0
 
-    easy-words = {}
+          average-verify-rlt[sim-category.title][supp][conf].pre += verify-rlt.pre / opt.simulation.repeated
+          average-verify-rlt[sim-category.title][supp][conf].rec += verify-rlt.rec / opt.simulation.repeated
+          average-verify-rlt[sim-category.title][supp][conf].F-score += verify-rlt.F-score / opt.simulation.repeated
+.then ->
+  if opt.qq-plot
+    q-q = opt.quality.map (quality) ->
+      for quantity, verify-rlt of average-verify-rlt["_Quality_#quality"]
+        break if verify-rlt[opt.target-conf].F-score >= opt.target-quality
+      {quality, quantity}
 
-    for pmid, stcs of gs-answer.box1
-      for stcid, stc of stcs
-        for wid, label of stc
-          if \NER is opt.theme
-            continue if opt.code.ignored is label or opt.code.protein is label or not choose-as-easy-word!
-          else
-            continue if opt.code.normal isnt label or not choose-as-easy-word!
+    fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/quantity-quality.json" JSON.stringify q-q, null 2
 
-          easy-words[pmid] ?= {}
-          easy-words[pmid][stcid] ?= {}
-          easy-words[pmid][stcid][wid] = true
-
-    sim-result = subject: {} labeled-stc: {} verification: {}
-
-    for sim-volume from opt.simulation.volume.min to opt.simulation.volume.max by opt.simulation.volume.step
-
-      # build simulation data
-
-      for sim-sub-id from Object.keys(sim-result.subject).length til sim-volume
-        rlt = sim-result.subject["_sim_#sim-sub-id"] = {}
-
-        while true then break if (FPR = math.generateGaussianSample sim-category.FPR.mean, sim-category.FPR.std-dev) < 1 and FPR > 0
-        while true then break if (TPR = math.generateGaussianSample sim-category.TPR.mean, sim-category.TPR.std-dev) < 1 and TPR > 0
-
-        pick-fp = math.choose-weighted [0 1] [100 - (FPR = parseInt FPR * 100), FPR]
-        pick-tp = math.choose-weighted [0 1] [100 - (TPR = parseInt TPR * 100), TPR]
-
-        for pmid, stcs of gs-answer.box1
-          rlt[pmid] = {}
-
-          for stcid, stc of stcs
-            sim-stc = rlt[pmid][stcid] = event: {} protein: {}
-
-            sim-art-labeled = sim-result.labeled-stc[pmid] ?= {}
-            sim-stc-labeled = sim-art-labeled[stcid] ?= labels: {} supp: 0
-            sim-stc-labeled.supp++
-
-            for wid, label of stc
-              continue if opt.code.ignored is label or (easy-words[pmid][stcid] and easy-words[pmid][stcid][wid])
-
-              if      opt.code.event   is label and pick-tp! then label-picked = \event
-              else if opt.code.protein is label and pick-tp! then label-picked = \protein
-              else if opt.code.normal  is label and pick-fp! then label-picked = \protein
-              else continue
-
-              sim-stc[label-picked][wid] = true
-
-              sim-stc-labeled.labels[wid] ?= event: 0 protein: 0
-              sim-stc-labeled.labels[wid][label-picked]++
-
-      # verification of integrated sim-result
-
-      sim-result.verification[sim-volume] = {}
-      average-verify-rlt[sim-category.title][sim-volume] ?= {}
-
-      for min-conf in opt.min-conf
-        verify-rlt = submits: 0 tp: 0 fp: 0 fn: 0 tn: 0 stc: total: 0 val_0: 0 val_1: 0 val_2: 0
-        mark-rlt = crowd.integrate-fixed opt.theme, stc-value, sim-volume, min-conf, sim-result.labeled-stc, verify-rlt
-
-        crowd.verify opt.theme, gs-answer.box1, mark-rlt, verify-rlt
-        verify-rlt.pre = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fp)
-        verify-rlt.rec = verify-rlt.tp / (verify-rlt.tp + verify-rlt.fn)
-        verify-rlt.F-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + verify-rlt.rec)
-
-        sim-result.verification[sim-volume][(min-conf = min-conf.to-fixed 1)] = verify-rlt
-        average-verify-rlt[sim-category.title][sim-volume][min-conf] ?= pre: 0 rec: 0 F-score: 0
-        average-verify-rlt[sim-category.title][sim-volume][min-conf].pre += verify-rlt.pre
-        average-verify-rlt[sim-category.title][sim-volume][min-conf].rec += verify-rlt.rec
-        average-verify-rlt[sim-category.title][sim-volume][min-conf].F-score += verify-rlt.F-score
-
-    console.log "[#{opt.color.dark-gray}#{(new Date!to-string! / ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}#{sim-category.title} #{opt.color.light-red}#{sim-exp-id + 1}#{opt.color.reset}/#{opt.simulation.repeated}"
-
-  for , confs of average-verify-rlt[sim-category.title]
-    for , verify-rlt of confs
-      verify-rlt.pre /= opt.simulation.repeated
-      verify-rlt.rec /= opt.simulation.repeated
-      verify-rlt.F-score /= opt.simulation.repeated
-
-if opt.qq-plot
-  q-q = opt.quality.map (quality) ->
-    for quantity, verify-rlt of average-verify-rlt["_Quality_#quality"]
-      break if verify-rlt[opt.target-conf].F-score >= opt.target-quality
-
-    {quality, quantity}
-
-  fs.write-file-sync "#{opt.path.res}/verify/NER/quantity-quality.json" JSON.stringify q-q, null 2
-
-fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" JSON.stringify average-verify-rlt, null 2
+  fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/sim-verification.json" JSON.stringify average-verify-rlt, null 2
 
 # vi:et:ft=ls
