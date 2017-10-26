@@ -34,7 +34,7 @@ opt =
 opt.simulation <<< require \./.sim.opt.ls
 
 store = napajs.store.create \counter
-store.set \simExpId 0
+store.set \simExpIds {}
 
 zone = napajs.zone.create \zone workers: parseInt opt.processor
 zone.broadcast '''
@@ -58,8 +58,6 @@ if opt.qq-plot
 
 function simulate sim-category, opt, gs-answer, stc-value
   [crowd, fs, math] = [global[module-name] for module-name in <[crowd fs math]>]
-
-  store = global.napa.store.get \counter
 
   choose-as-trivial-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.simulation[opt.theme].trivial-word-ratio.negative * 100), _prob]
 
@@ -130,9 +128,10 @@ function simulate sim-category, opt, gs-answer, stc-value
 
       sim-result.verification[sim-volume][min-conf.to-fixed 1] = verify-rlt
 
-  store.set \simExpId sim-exp-id = 1 + store.get \simExpId
-
-  sim-exp-id = if 0 is $_ = sim-exp-id % opt.simulation.repeated then 100 else $_
+  sim-exp-ids = global.napa.store.get \counter .get \simExpIds
+  sim-exp-ids[sim-category.title] ?= 0
+  sim-exp-id = ++sim-exp-ids[sim-category.title]
+  global.napa.store.get \counter .set \simExpIds sim-exp-ids
 
   console.log "[#{opt.color.dark-gray}#{(new Date!to-string!.split ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}#{sim-category.title} #{opt.color.light-red}#sim-exp-id#{opt.color.reset}/#{opt.simulation.repeated}"
 
