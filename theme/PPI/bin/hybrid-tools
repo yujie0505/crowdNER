@@ -8,6 +8,7 @@ opt =
   path: res: \../res tools: \../tools
   tools: fs.readdir-sync \../tools/
 <<< require \node-getopt .create [
+  * [\b , \benchmark   , 'verify words in benchmark sentences']
   * [\c , \minConf=ARG , "specify the minimum confidence (default: #{opt.min-conf})"]
   * [\h , \help        , 'show this help']
   * [\t , \tools=ARG+  , "specify automatic tools (default: #{opt.tools * ', '})"]
@@ -31,9 +32,11 @@ for tool in opt.tools
         hybrid-rlt[pmid][stcid][wid] ?= 0
         hybrid-rlt[pmid][stcid][wid]++
 
-for pmid, stcs of benchmark
-  for stcid of stcs
-    for wid, label of gs-answer.box1[pmid][stcid]
+for pmid, stcs of gs-answer.box1
+  for stcid, stc of stcs
+    continue if opt.benchmark and not benchmark[pmid][stcid]
+
+    for wid, label of stc
       continue if opt.code.ignored is label
 
       if hybrid-rlt[pmid][stcid] and hybrid-rlt[pmid][stcid][wid] >= opt.min-conf
