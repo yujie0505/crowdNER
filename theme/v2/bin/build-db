@@ -1,0 +1,74 @@
+#!/usr/local/bin/lsc
+
+require! <[fs]>
+
+#### global variables (with default values)
+
+opt =
+  path:
+    v1: res: \../../v1/res src: \../../v1/src
+    v2: res: \../res
+  theta:
+    sentence: 1
+    word: base: 1 top: 3
+opt.pmids = fs.readdir-sync "#{opt.path.v1.res}/world/box/"
+
+# resources
+
+article          = { [pmid, JSON.parse fs.read-file-sync "#{opt.path.v1.res}/world/box/#pmid" \utf-8] for pmid in opt.pmids }
+hybrid-tools-rlt = JSON.parse fs.read-file-sync "#{opt.path.v1.res}/verify/NER/hybrid-tools-rlt.json" \utf-8
+stop-words       = JSON.parse fs.read-file-sync "#{opt.path.v1.src}/words/stopWords.json" \utf-8
+
+# v2 database
+
+db-v2 = annotation-list: { '0': [] '1': [] '2': [] } entity-candidate: {} sentence: {}
+
+#######################################################################################
+
+# extract all non-stop-words
+
+for pmid in opt.pmids
+  for stc, stcid in article[pmid].word
+    for w, wid in stc
+      continue if stop-words[w]
+
+      db-v2.entity-candidate[w] ?= location: [] sorted-loc: '0': [] '1': [] '2': []
+      db-v2.entity-candidate[w].location.push {pmid, stcid, wid} <<< score: do
+        if not hybrid-tools-rlt[pmid][stcid] or not hybrid-tools-rlt[pmid][stcid][wid] then 0
+        else                                                                                hybrid-tools-rlt[pmid][stcid][wid]
+
+# compute the average score for each entity candidate
+
+for w, w-info of db-v2.entity-candidate
+  w-info <<< avg-score: w-info.location.map(-> it.score).reduce((a, b) -> a + b) / w-info.location.length
+
+  if      w-info.avg-score >= opt.theta.word.top  then db-v2.annotation-list['2'].push w
+  else if w-info.avg-score >= opt.theta.word.base then db-v2.annotation-list['1'].push w
+  else                                                 db-v2.annotation-list['0'].push w
+
+# compute sentence level
+
+for pmid in opt.pmids
+  db-v2.sentence[pmid] = {}
+
+  for stc, stcid in article[pmid].word
+    high-level-words = 0
+
+    for w, wid in stc
+      continue if not db-v2.entity-candidate[w]
+
+      high-level-words++ if db-v2.entity-candidate[w].avg-score >= opt.theta.word.top
+
+    db-v2.sentence[pmid][stcid] =
+      level: if high-level-words > opt.theta.sentence then 2 else if high-level-words is opt.theta.sentence then 1 else 0
+      non-word: article[pmid].nonword[stcid], word: stc
+
+# sort sentence level
+
+for , w-info of db-v2.entity-candidate
+  for loc in w-info.location
+    w-info.sorted-loc[db-v2.sentence[loc.pmid][loc.stcid].level].push {loc.pmid, loc.stcid}
+
+fs.write-file-sync "#{opt.path.v2.res}/db.json" JSON.stringify db-v2, null 2
+
+# vi:et:ft=ls
