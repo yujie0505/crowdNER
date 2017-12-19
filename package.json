@@ -16,6 +16,7 @@
     "file-loader": "^0.10.1",
     "gulp": "^3.9.1",
     "html-loader": "^0.4.5",
+    "imports-loader": "^0.7.1",
     "napajs": "^0.1.4",
     "node-getopt": "^0.2.3",
     "node-sass": "^4.5.2",
@@ -32,6 +33,7 @@
     "webpack-hot-middleware": "^2.21.0"
   },
   "dependencies": {
+    "mustache": "^2.3.0",
     "plotly.js": "^1.28.3"
   },
   "scripts": {
