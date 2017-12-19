@@ -11,8 +11,10 @@
     "eslint": "^3.18.0",
     "eslint-loader": "^1.7.0",
     "eslint-plugin-react": "^6.10.3",
+    "express": "^4.16.2",
     "extract-loader": "^0.1.0",
     "file-loader": "^0.10.1",
+    "gulp": "^3.9.1",
     "html-loader": "^0.4.5",
     "napajs": "^0.1.4",
     "node-getopt": "^0.2.3",
@@ -20,18 +22,21 @@
     "postcss-loader": "^2.0.5",
     "pug": "^2.0.0-beta11",
     "pug-html-loader": "^1.1.4",
+    "require-reload": "^0.2.2",
     "sass-loader": "^6.0.3",
+    "socket.io": "^2.0.4",
     "style-loader": "^0.13.1",
     "url-loader": "^0.5.8",
     "webpack": "^2.2.1",
-    "webpack-dev-server": "^2.4.1"
+    "webpack-dev-middleware": "^2.0.1",
+    "webpack-hot-middleware": "^2.21.0"
   },
   "dependencies": {
     "plotly.js": "^1.28.3"
   },
   "scripts": {
     "lint": "./node_modules/.bin/eslint ./bin/**/bin/; exit 0",
-    "start": "./node_modules/.bin/webpack-dev-server"
+    "start": "./node_modules/.bin/gulp dev"
   },
   "license": "MIT"
 }
