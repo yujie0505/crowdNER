@@ -1,17 +1,29 @@
 html
   head
-    link(href='./app.css' rel='stylesheet')
-    meta(charset='utf-8')
-    title validCS
+    link(rel='stylesheet' href='./app.css')
+    script(src='/socket.io/socket.io.js')
+    title Markteria.v2
   body
-    #labeler_score_boxPlot
-    #labeler_score_scatterPlot
+    ul#entity
+      li
+        input.tgl(id='gene' type='checkbox')
+        label.tgl-btn(data-entity='Gene' for='gene')
+      li
+        input.tgl(id='protein' type='checkbox')
+        label.tgl-btn(data-entity='Protein' for='protein')
+      li
+        input.tgl(id='dna' type='checkbox')
+        label.tgl-btn(data-entity='DNA' for='dna')
+      li
+        input.tgl(id='rna' type='checkbox')
+        label.tgl-btn(data-entity='RNA' for='rna')
+      li
+        input.tgl(id='cell_line' type='checkbox')
+        label.tgl-btn(data-entity='Cell_Line' for='cell_line')
+      li
+        input.tgl(id='pathway' type='checkbox')
+        label.tgl-btn(data-entity='Pathway' for='pathway')
 
-    #crowdSourcing_verification_FScore
-    #crowdSourcing_verification_Precision
-    #crowdSourcing_verification_Recall
+    ul#sentences
 
-    #simulation_verification
-
-    #quantity_quality
     script(src='./app.js')

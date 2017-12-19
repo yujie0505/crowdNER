@@ -1,2 +1,92 @@
 body
-  margin: 0 10%
+  font-family: sans-serif
+  margin: 0
+
+  *
+    box-sizing: border-box
+
+  > *
+    border: 1px solid #c7c7c7
+    margin: 1em
+    padding: 1em
+    position: relative
+
+    &:after
+      background: #fff
+      color: #929191
+      left: 2em
+      padding: 0 .5em
+      position: absolute
+      top: -.5em
+
+// toggle button
+
+ul, li
+  flex-wrap: wrap
+  list-style: none
+
+.tgl
+  display: none
+
+  + .tgl-btn
+    background: #888
+    cursor: pointer
+    display: block
+    height: 2.5em
+    margin: 0 auto
+    outline: 0
+    overflow: hidden
+    position: relative
+    transform: skew(-10deg)
+    transition: all .2s ease
+    user-select: none
+    width: 6em
+
+    &:after, &:before
+      color: #fff
+      display: inline-block
+      font-weight: bold
+      height: 100%
+      line-height: 2.5em
+      position: absolute
+      text-align: center
+      text-shadow: 0 1px 0 rgba(0, 0, 0, .4)
+      transform: skew(10deg)
+      transition: all .2s ease
+      width: 100%
+
+    &:after
+      content: attr(data-entity)
+      left: 100%
+
+    &:before
+      content: attr(data-entity)
+      left: 0
+
+  &:checked + .tgl-btn
+    background: #11CD86
+
+    &:after
+      left: 0
+
+    &:before
+      left: -100%
+
+// entity panel
+
+#entity
+  display: flex
+  justify-content: center
+
+  &:after
+    content: 'ENTITY'
+
+  > li
+    margin: 0 2em
+    padding: 0
+
+// plot
+
+#sentences
+  &:after
+    content: 'DETAILS'
