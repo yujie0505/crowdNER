@@ -4,7 +4,7 @@ import math from './lib/math.js'
 // global variables (with default values)
 
 const opt = {
-  alphanumeric: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".split(''),
+  alphanumeric: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.split(''),
   id_length: 7,
   path: {
     v2: { res: './theme/v2/res', src: './theme/v2/src' }
@@ -34,7 +34,7 @@ const buildList = lists => {
   let levels = Object.keys(lists), list = []
   let pickLevel = math.chooseWeighted(levels, levels.map(it => opt.weighted[it]))
 
-  while (1) {
+  while (1 < levels.length) {
     let level = pickLevel()
 
     list.push(lists[level].pop())
@@ -43,13 +43,11 @@ const buildList = lists => {
       delete lists[level]
 
       levels = Object.keys(lists)
-
-      if (1 === levels.length)
-        return list.concat(lists[levels[0]])
-
       pickLevel = math.chooseWeighted(levels, levels.map(it => opt.weighted[it]))
     }
   }
+
+  return list.concat(lists[levels[0]])
 }
 
 const hash = size => {
@@ -65,9 +63,9 @@ const hash = size => {
 
 module.exports = io => {
   io.on('connect', client => {
-    const annotator = { uid: '', word_list: [] }
+    const annotator = {}
 
-    // build annotator id
+    // build annotator's id
 
     while (1) {
       annotator.uid = hash(opt.id_length)
@@ -79,6 +77,32 @@ module.exports = io => {
       }
     }
 
+    // build word list
+
+    annotator.word_list = buildList({
+      '0': db.annotationList[0].slice().shuffle(),
+      '1': db.annotationList[1].slice().shuffle(),
+      '2': db.annotationList[2].slice().shuffle()
+    })
+
     client.emit('init', [annotator.uid, db.sentence])
+
+    client.on('next', cb => {
+      let word = annotator.word_list.shift(), lists = {}
+
+      for (let level in db.entityCandidate[word].sortedLoc) {
+        if (db.entityCandidate[word].sortedLoc[level].length)
+          lists[level] = db.entityCandidate[word].sortedLoc[level].slice().shuffle()
+      }
+
+      cb(word, buildList(lists))
+    })
+
+    client.on('submit', rlt => {
+      rlt.action = 'submit'
+      rlt.time = new Date() .toString()
+
+      fs.appendFileSync(`${opt.path.v2.src}/mark-result/${annotator.uid}`, `\n${JSON.stringify(rlt)}`)
+    })
   })
 }

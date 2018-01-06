@@ -2,141 +2,79 @@
 
 // web framework
 
-import Plotly from 'plotly.js/dist/plotly.min.js'
+import 'imports-loader?define=>false,exports=>false,this=>window!mustache/mustache'
+
+const socket = io()
 
 // custom modules
 
 import './app.sass'
 import './index.pug'
 
-///////////////////////////////////////////////////////
+// for hot module replacement in development
 
-const opt = {
-  box_plot: {
-    boxmean   : 'sd',
-    boxpoints : 'Outliers',
-    type      : 'box'
-  },
-  colors: ['ae6568', '7ebdc3', 'b5dbac'],
-  layout: {
-    autosize : true,
-    height   : 700,
-    legend   : { orientation: 'h', y: -0.12 }
-  },
-  quantity_quality: {
-    estimation_point: { quantity: 20, quality: 0.62 },
-    xaxis: { min: 0, max: 500 },
-    yaxis: { min: 0.5, max: 0.8 }
-  },
-  scatter_plot: {
-    mode: 'lines',
-    type: 'scatter'
-  },
-  show_result: location.hash.replace('#', ''),
-  theme: location.search.match(/theme=(\w+)/)[1]
+if ('development' === process.env.NODE_ENV)
+  require('webpack-hot-middleware/client').subscribe(event => {
+    if ('hmr' === event.action) window.location.reload()
+  })
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+// global variables (with default values)
+
+const app = {
+  detail_tmpl: document.querySelector('#details script').innerHTML
 }
+Mustache.parse(app.detail_tmpl)
 
 // utility
 
-const buildHorizontalLine = (value, size) => {
-  let points = []
-  while (size--)
-    points.push(value)
+const render = (word, locs) => {
+  document.querySelector('#entity input#others').click()
 
-  return points
-}
+  let stcs = []
 
-///////////////////////////////////////////////////////
+  for (let loc of locs) {
+    let stc = ''
 
-switch (opt.show_result) {
-  case 'crowdSourcing':
-    const verification = require(`./res/verify/${opt.theme}/verification.${location.search.match(/source=(\w+)/)[1]}.json`)
+    for (let wid in app.sentence[loc.pmid][loc.stcid].word) {
+      if (word === app.sentence[loc.pmid][loc.stcid].word[wid])
+        stc += `<em>${app.sentence[loc.pmid][loc.stcid].word[wid]}</em>`
+      else
+        stc += app.sentence[loc.pmid][loc.stcid].word[wid]
 
-    const verify_rlt = { fScore: {}, pre: {}, rec: {} }
-    for (let support in verification.crowdSourcing) {
-      for (let confidence in verification.crowdSourcing[support]) {
-        if ('NER' === opt.theme && ('0.3' === confidence || '0.4' === confidence)) continue
-
-        for (let statistics in verify_rlt) {
-          let trace = verify_rlt[statistics][confidence] ? verify_rlt[statistics][confidence] : verify_rlt[statistics][confidence] = { name: `Confidence = ${confidence}`, x: [], y: [] }
-
-          trace.x.push(support)
-          trace.y.push(verification.crowdSourcing[support][confidence][statistics])
-        }
-      }
+      stc += app.sentence[loc.pmid][loc.stcid].nonWord[wid]
     }
 
-    const titles = { fScore: 'FScore', pre: 'Precision', rec: 'Recall' }
-    for (let statistics in verify_rlt) {
-      let traces = []
+    stcs.push({ pmid: loc.pmid, stc: stc, stcid: loc.stcid, value: stcs.length + 1 })
+  }
 
-      for (let confidence in verify_rlt[statistics])
-        traces.push(Object.assign(verify_rlt[statistics][confidence], opt.scatter_plot))
+  document.querySelector('#details').innerHTML = Mustache.render(app.detail_tmpl, { stcs: stcs, word: word })
 
-      Plotly.newPlot(`crowdSourcing_verification_${titles[statistics]}`, traces, Object.assign({ title: `CrowdSourcing Verification ${titles[statistics]}` }, opt.layout))
-    }
+  document.querySelector('#details button').onclick = () => {
+    let entity = document.querySelector('#entity input:checked'),
+        detail = document.querySelector('#details input:checked')
 
-    break
+    if (!entity || !detail) return
 
-  case 'quantity-quality':
-    const quantity = [], quality = []
-    require(`./res/verify/${opt.theme}/quantity-quality.json`).map(it => {
-      quantity.push(it.quantity)
-      quality.push(it.quality)
+    socket.emit('submit', {
+      entity : entity.dataset.entity,
+      pmid   : detail.dataset.pmid,
+      stcid  : detail.dataset.stcid,
+      value  : detail.dataset.value,
+      word   : word
     })
 
-    let layout = {
-      showlegend: false,
-      xaxis: { range: [opt.quantity_quality.xaxis.min, opt.quantity_quality.xaxis.max], title: 'Quantity' },
-      yaxis: { range: [opt.quantity_quality.yaxis.min, opt.quantity_quality.yaxis.max], title: 'Quality' }
-    }
-
-    Plotly.newPlot('quantity_quality', [
-      { marker: { color: opt.colors[0] }, type: 'scatter', x: [opt.quantity_quality.estimation_point.quantity], y: [opt.quantity_quality.estimation_point.quality] },
-      Object.assign({ marker: { color: opt.colors[1] }, x: quantity, y: quality }, opt.scatter_plot),
-      Object.assign({ marker: { color: opt.colors[2] }, fill: 'tonexty', x: quantity, y: buildHorizontalLine(quality[quality.length - 1], quality.length) }, opt.scatter_plot)
-    ], Object.assign(layout, opt.layout))
-
-    break
-
-  case 'simulation':
-    const simulation = require(`./res/verify/${opt.theme}/sim-verification.json`)
-
-    const traces = []
-    for (let category in simulation) {
-      let trace = { name: category, x: [], y: [] }
-
-      for (let support in simulation[category]) {
-        trace.x.push(support)
-        trace.y.push(simulation[category][support]['0.5'].rec)
-      }
-
-      traces.push(Object.assign(trace, opt.scatter_plot))
-    }
-    traces.push(Object.assign({ name: 'expert', x: traces[0].x, y: buildHorizontalLine(0.9, traces[0].x.length) }, opt.scatter_plot))
-
-    Plotly.newPlot('simulation_verification', traces, Object.assign({ xaxis: { title: 'Simulation Amounts' }, yaxis: { range: [0, 1], title: 'Sensitivity' } }, opt.layout))
-
-    break
-
-  case 'subjects':
-    const scores = [], subjects = []
-    require(`./res/verify/${opt.theme}/labeler-score.json`).map(it => {
-      scores.push(it.score)
-      subjects.push(it.sid)
-    })
-
-    const data = { name: 'Labeler Score', y: scores }
-    Plotly.newPlot('labeler_score_boxPlot', [ Object.assign(data, opt.box_plot) ], opt.layout)
-
-    const statistics = document.getElementById('labeler_score_boxPlot').calcdata[0][0]
-    Plotly.newPlot('labeler_score_scatterPlot', [
-      Object.assign(data, { mode: 'markers', type: 'scatter', x: subjects }),
-      Object.assign({ name: 'Double StdDev Minimum', x: subjects, y: buildHorizontalLine((statistics.mean - 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Double StdDev Maximum', x: subjects, y: buildHorizontalLine((statistics.mean + 2 * statistics.sd), subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Box Plot Minimum',      x: subjects, y: buildHorizontalLine(statistics.lf, subjects.length) }, opt.scatter_plot),
-      Object.assign({ name: 'Box Plot Maximum',      x: subjects, y: buildHorizontalLine(statistics.uf, subjects.length) }, opt.scatter_plot)
-    ], opt.layout)
-
-    break
+    socket.emit('next', render)
+  }
 }
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+socket.on('init', ([uid, sentence]) => {
+  app.sentence = sentence
+
+  document.getElementById('uid').textContent = uid
+
+  socket.emit('next', render)
+})

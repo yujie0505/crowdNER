@@ -5,7 +5,7 @@ body
   *
     box-sizing: border-box
 
-  > *
+  > ul
     border: 1px solid #c7c7c7
     margin: 1em
     padding: 1em
@@ -85,8 +85,35 @@ ul, li
     margin: 0 2em
     padding: 0
 
-// plot
+  #uid
+    color: grey
+    font-size: 1.5em
+    font-style: italic
+    position: absolute
+    right: 1em
 
-#sentences
+// details panel
+
+#details
   &:after
     content: 'DETAILS'
+
+  button
+    font-size: 1em
+    left: 50%
+    position: relative
+    transform: translateX(-50%)
+
+  div
+    display: flex
+    margin-bottom: 2em
+
+    > input
+      margin-right: 1em
+
+    em
+      background-color: pink
+      font-style: normal
+
+  h1
+    text-align: center

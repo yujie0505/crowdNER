@@ -3,27 +3,34 @@ html
     link(rel='stylesheet' href='./app.css')
     script(src='/socket.io/socket.io.js')
     title Markteria.v2
+
   body
     ul#entity
       li
-        input.tgl(id='gene' type='checkbox')
+        input.tgl(data-entity='Gene' id='gene' name='entity' type='radio')
         label.tgl-btn(data-entity='Gene' for='gene')
       li
-        input.tgl(id='protein' type='checkbox')
+        input.tgl(data-entity='Protein' id='protein' name='entity' type='radio')
         label.tgl-btn(data-entity='Protein' for='protein')
       li
-        input.tgl(id='dna' type='checkbox')
-        label.tgl-btn(data-entity='DNA' for='dna')
-      li
-        input.tgl(id='rna' type='checkbox')
-        label.tgl-btn(data-entity='RNA' for='rna')
-      li
-        input.tgl(id='cell_line' type='checkbox')
+        input.tgl(data-entity='Cell_Line' id='cell_line' name='entity' type='radio')
         label.tgl-btn(data-entity='Cell_Line' for='cell_line')
       li
-        input.tgl(id='pathway' type='checkbox')
+        input.tgl(data-entity='Pathway' id='pathway' name='entity' type='radio')
         label.tgl-btn(data-entity='Pathway' for='pathway')
+      li
+        input.tgl(data-entity='Others' id='others' name='entity' type='radio')
+        label.tgl-btn(data-entity='Others' for='others')
+      span#uid
 
-    ul#sentences
+    ul#details
+      script(type='x-tmpl-mustache')
+        h1 {{word}}
+        | {{#stcs}}
+        div
+          input(data-pmid='{{pmid}}' data-stcid='{{stcid}}' data-value='{{value}}' name='detail' type='radio')
+          span {{{stc}}}
+        | {{/stcs}}
+        button Submit
 
     script(src='./app.js')
