@@ -85,8 +85,6 @@ module.exports = io => {
       '2': db.annotationList[2].slice().shuffle().sort((a, b) => db.entityCandidate[a].location.length - db.entityCandidate[b].location.length)
     })
 
-    fs.writeFileSync('./a.json', JSON.stringify(annotator.word_list, null, 2))
-
     client.emit('init', [annotator.uid, db.sentence])
 
     client.on('next', cb => {
