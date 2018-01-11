@@ -30,6 +30,8 @@ Mustache.parse(app.detail_tmpl)
 // utility
 
 const render = (word, locs) => {
+  window.scroll({ top: 0 })
+
   document.querySelector('#entity input#others').click()
 
   let stcs = []
