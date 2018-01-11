@@ -80,10 +80,12 @@ module.exports = io => {
     // build word list
 
     annotator.word_list = buildList({
-      '0': db.annotationList[0].slice().shuffle(),
-      '1': db.annotationList[1].slice().shuffle(),
-      '2': db.annotationList[2].slice().shuffle()
+      '0': db.annotationList[0].slice().shuffle().sort((a, b) => db.entityCandidate[a].location.length - db.entityCandidate[b].location.length),
+      '1': db.annotationList[1].slice().shuffle().sort((a, b) => db.entityCandidate[a].location.length - db.entityCandidate[b].location.length),
+      '2': db.annotationList[2].slice().shuffle().sort((a, b) => db.entityCandidate[a].location.length - db.entityCandidate[b].location.length)
     })
+
+    fs.writeFileSync('./a.json', JSON.stringify(annotator.word_list, null, 2))
 
     client.emit('init', [annotator.uid, db.sentence])
 
