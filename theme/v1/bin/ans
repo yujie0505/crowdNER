@@ -37,6 +37,48 @@ res =
 #######################################################################################
 
 switch opt.action
+| \behavior-mining
+  gs-answer   = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
+  mark-result = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
+  subject     = JSON.parse fs.read-file-sync "#{opt.path.res}/world/subject.json" \utf-8
+
+  pass-amount = {}
+
+  for sid, info of subject.personal
+    pass-amount[sid] = 0
+
+    for eid in info.expID
+      for log in (fs.read-file-sync "#{opt.path.src}/mark-result/subject/#eid" \utf-8) / \\n
+        continue if not /action":"pass/ .test log
+
+        pass-amount[sid]++
+
+  expert-rlts = {}
+
+  for eid, rlt of mark-result.box1.expert
+    expert-rlts[eid] = {}
+
+    for pmid, stcs of rlt
+      art = JSON.parse fs.read-file-sync "#{opt.path.res}/world/box/#pmid" \utf-8
+
+      for stcid, stc of stcs
+        for w, wid in art.word[stcid]
+          expert-rlts[eid][w] ?= tp: [] fp: [] fn: [] tn: []
+
+          if stc.protein[wid]
+            if opt.code.protein is gs-answer.box1[pmid][stcid][wid] then expert-rlts[eid][w].tp.push art.context[stcid]
+            else                                                         expert-rlts[eid][w].fp.push art.context[stcid]
+          else
+            if opt.code.protein is gs-answer.box1[pmid][stcid][wid] then expert-rlts[eid][w].fn.push art.context[stcid]
+            else                                                         expert-rlts[eid][w].tn.push art.context[stcid]
+
+    for word, annotation of expert-rlts[eid]
+      conflict = 0; for , marks of annotation then conflict++ if marks.length
+
+      delete expert-rlts[eid][word] if 1 >= conflict
+
+  fs.write-file-sync "#{opt.path.res}/expert-conflict.json" JSON.stringify expert-rlts, null 2
+
 | \build-ans
 
   # build answers for NER only; specify operation as `parse-checked-words` to get additional PPI answers
