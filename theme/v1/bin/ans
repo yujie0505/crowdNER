@@ -387,7 +387,7 @@ switch opt.action
     max-considered-conf: 1 max-considered-supp: 15 row-id: 6 separated-rows-between-blocks: 3
   stats = {}
 
-  (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.spreadsheet-id, worksheet-id: opt.google.worksheet.stats
+  (err, sheet) <-! edit-google-spreadsheet.load {opt.debug} <<< oauth2: opt.google.oauth2, spreadsheet-id: opt.google.v1.spreadsheet-id, worksheet-id: opt.google.v1.worksheet-id.stats
   return ERR 'Failed as loading to google spreadsheet' if err
 
   # verification of individual expert
