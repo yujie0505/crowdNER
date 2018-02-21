@@ -52,6 +52,6 @@ verify-rlt.f-score = 2 * verify-rlt.pre * verify-rlt.rec / (verify-rlt.pre + ver
 
 fs.write-file-sync "#{opt.path.res}/verify/NER/hybrid-tools-rlt.json" JSON.stringify hybrid-rlt, null 2
 
-console.log verify-rlt
+console.log JSON.stringify verify-rlt, null 2
 
 # vi:et:ft=ls
