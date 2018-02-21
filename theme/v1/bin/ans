@@ -66,11 +66,11 @@ switch opt.action
           expert-rlts[eid][w] ?= tp: [] fp: [] fn: [] tn: []
 
           if stc.protein[wid]
-            if opt.code.protein is gs-answer.box1[pmid][stcid][wid] then expert-rlts[eid][w].tp.push art.context[stcid]
-            else                                                         expert-rlts[eid][w].fp.push art.context[stcid]
+            if opt.code.protein is gs-answer.box1[pmid][stcid][wid] then expert-rlts[eid][w].tp.push "#{art.context[stcid]} (#pmid, #stcid, #wid)"
+            else                                                         expert-rlts[eid][w].fp.push "#{art.context[stcid]} (#pmid, #stcid, #wid)"
           else
-            if opt.code.protein is gs-answer.box1[pmid][stcid][wid] then expert-rlts[eid][w].fn.push art.context[stcid]
-            else                                                         expert-rlts[eid][w].tn.push art.context[stcid]
+            if opt.code.protein is gs-answer.box1[pmid][stcid][wid] then expert-rlts[eid][w].fn.push "#{art.context[stcid]} (#pmid, #stcid, #wid)"
+            else                                                         expert-rlts[eid][w].tn.push "#{art.context[stcid]} (#pmid, #stcid, #wid)"
 
     for word, annotation of expert-rlts[eid]
       conflict = 0; for , marks of annotation then conflict++ if marks.length
