@@ -14,14 +14,14 @@ opt =
     reset     : '\033[0m'
     yellow    : '\033[1;33m'
   path: res: \../res src: \../src
-  restriction : min-stc-value: 0 min-supp: 1
+  restriction: min-stc-value: 0 min-supp: 1
   theme: \NER
 <<< require \node-getopt .create [
   * [\b , \blacklist=ARG+  , 'push experiment IDs in blacklist']
+  * [\c , \corpusStats     , 'show the statstic data of using corpus']
   * [\h , \help            , 'show this help']
   * [\s , \minSupport=ARG  , "set the minimum support for each labeled sentence (default: #{opt.restriction.min-supp})"]
-  * [\t , \totalSentence   , 'take total sentences into consideration']
-  * [\T , \theme=ARG       , "specify theme (default: `#{opt.theme}`)"]
+  * [\t , \theme=ARG       , "specify theme (default: `#{opt.theme}`)"]
   * [\v , \minStcValue=ARG , "set the minimum value of sentence to be extracted (default: #{opt.restriction.min-stc-value})"]
 ] .bind-help '\nUsage: lsc stc-info.ls\n[[OPTIONS]]\n' .parse-system!options
 opt.restriction.min-stc-value = parseInt opt.min-stc-value if opt.min-stc-value
@@ -33,68 +33,59 @@ gs-answer = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
 mark-rlt  = JSON.parse fs.read-file-sync "#{opt.path.res}/mark-result.json" \utf-8
 stc-value = JSON.parse fs.read-file-sync "#{opt.path.res}/world/stcValue.json" \utf-8
 
-verify-rlt =
-  amounts: mark: 0 sentence: 0 word: 0
-  words: negative: 0 positive: 0
+stats = sentence: 0 submit: 0 word: negative: 0 positive: 0
 
-switch opt.total-sentence
+switch opt.corpus-stats
 | on
   for pmid, stcs of stc-value.box1
-    for stcid, val of stcs
-      continue if opt.restriction.min-stc-value > val
+    for stcid, s-val of stcs
+      continue if opt.restriction.min-stc-value > s-val
 
-      verify-rlt.amounts.sentence++
+      stats.sentence++
 
       for , label of gs-answer.box1[pmid][stcid]
         continue if opt.code.ignored is label
 
         if opt.code.event is label
-          if \PPI is opt.theme then verify-rlt.words.positive++
-          else                      verify-rlt.words.negative++
-        else if opt.code.normal  is label then verify-rlt.words.negative++
-        else if opt.code.protein is label then verify-rlt.words.positive++
-
-        verify-rlt.amounts.word++
+          if \PPI is opt.theme then stats.word.positive++
+          else                      stats.word.negative++
+        else if opt.code.normal  is label then stats.word.negative++
+        else if opt.code.protein is label then stats.word.positive++
 
 | _
-  subject-labeled = {}
-  blacklist = "(#{opt.blacklist * \|})"
+  blacklist = "(#{opt.blacklist * \|})"; s-labeled = {}
 
-  for exp-id in fs.readdir-sync "#{opt.path.src}/mark-result/subject/"
-    continue if opt.blacklist.length and exp-id.match blacklist
+  for eid in fs.readdir-sync "#{opt.path.src}/mark-result/subject/"
+    continue if opt.blacklist.length and blacklist.test eid
 
-    logs = (fs.read-file-sync "#{opt.path.src}/mark-result/subject/#exp-id" \utf-8) / \\n
+    for log in (fs.read-file-sync "#{opt.path.src}/mark-result/subject/#eid" \utf-8) / \\n .slice 0 -1
+      rlt = JSON.parse log
 
-    for log in logs.slice 0 -1
-      submit-rlt = JSON.parse log
+      continue if \submit isnt rlt.action or 1 isnt rlt.box
+      continue if opt.restriction.min-stc-value > stc-value.box1[rlt.pmid][rlt.stcid]
+      continue if opt.restriction.min-supp > mark-rlt.box1.labeled-stc[rlt.pmid][rlt.stcid].supp
 
-      continue if \submit isnt submit-rlt.action or 1 isnt submit-rlt.box
-      continue if opt.restriction.min-stc-value > stc-value.box1[submit-rlt.pmid][submit-rlt.stcid]
-      continue if opt.restriction.min-supp > mark-rlt.box1.labeled-stc[submit-rlt.pmid][submit-rlt.stcid].supp
+      s-labeled[rlt.pmid] ?= {}
 
-      subject-labeled[submit-rlt.pmid] ?= {}
+      if not s-labeled[rlt.pmid][rlt.stcid]
+        stats.sentence++
 
-      if not subject-labeled[submit-rlt.pmid][submit-rlt.stcid]
-        verify-rlt.amounts.sentence++
-
-        for , label of gs-answer.box1[submit-rlt.pmid][submit-rlt.stcid]
+        for , label of gs-answer.box1[pmid][stcid]
           continue if opt.code.ignored is label
 
           if opt.code.event is label
-            if \PPI is opt.theme then verify-rlt.words.positive++
-            else                      verify-rlt.words.negative++
-          else if opt.code.normal  is label then verify-rlt.words.negative++
-          else if opt.code.protein is label then verify-rlt.words.positive++
+            if \PPI is opt.theme then stats.word.positive++
+            else                      stats.word.negative++
+          else if opt.code.normal  is label then stats.word.negative++
+          else if opt.code.protein is label then stats.word.positive++
 
-          verify-rlt.amounts.word++
+        s-labeled[rlt.pmid][rlt.stcid] = {}
 
-        subject-labeled[submit-rlt.pmid][submit-rlt.stcid] = {}
+      if not s-labeled[rlt.pmid][rlt.stcid][eid]
+        stats.mark++
 
-      if not subject-labeled[submit-rlt.pmid][submit-rlt.stcid][exp-id]
-        verify-rlt.amounts.mark++
+        s-labeled[rlt.pmid][rlt.stcid][eid] = true
 
-        subject-labeled[submit-rlt.pmid][submit-rlt.stcid][exp-id] = true
-
-console.log verify-rlt
+console.log stats
 
 # vi:et:ft=ls
