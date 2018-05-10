@@ -80,20 +80,18 @@ module.exports = io => {
     // build word list
 
     annotator.word_list = buildList({
-      '0': db.annotationList[0].slice().shuffle().sort((a, b) => db.entityCandidate[a].location.length - db.entityCandidate[b].location.length),
-      '1': db.annotationList[1].slice().shuffle().sort((a, b) => db.entityCandidate[a].location.length - db.entityCandidate[b].location.length),
-      '2': db.annotationList[2].slice().shuffle().sort((a, b) => db.entityCandidate[a].location.length - db.entityCandidate[b].location.length)
+      '0': db.annotationList.trivial.slice().shuffle().sort((a, b) => db.sources[a.pmid].entityCandidates[a.w].location.length - db.sources[b.pmid].entityCandidates[b.w].location.length),
+      '1': db.annotationList.nonTrivial.slice().shuffle().sort((a, b) => db.sources[a.pmid].entityCandidates[a.w].location.length - db.sources[b.pmid].entityCandidates[b.w].location.length)
     })
 
-    client.emit('init', [annotator.uid, db.sentence])
+    client.emit('init', [annotator.uid, db.sources])
 
     client.on('next', cb => {
       let word = annotator.word_list.shift(), lists = {}
 
-      for (let level in db.entityCandidate[word].sortedLoc) {
-        if (db.entityCandidate[word].sortedLoc[level].length)
-          lists[level] = db.entityCandidate[word].sortedLoc[level].slice().shuffle()
-      }
+      for (let level in db.sources[word.pmid].entityCandidates[word.w].sortedLoc)
+        if (db.sources[word.pmid].entityCandidates[word.w].sortedLoc[level].length)
+          lists[level] = db.sources[word.pmid].entityCandidates[word.w].sortedLoc[level].slice().shuffle()
 
       cb(word, buildList(lists))
     })
