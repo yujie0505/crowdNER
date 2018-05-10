@@ -39,19 +39,19 @@ const render = (word, locs) => {
   for (let loc of locs) {
     let stc = ''
 
-    for (let wid in app.sentence[loc.pmid][loc.stcid].word) {
-      if (word === app.sentence[loc.pmid][loc.stcid].word[wid])
-        stc += `<em>${app.sentence[loc.pmid][loc.stcid].word[wid]}</em>`
+    for (let wid in app.sources[word.pmid].sentences[loc.stcid].word) {
+      if (wid == loc.wid)
+        stc += `<em>${app.sources[word.pmid].sentences[loc.stcid].word[wid]}</em>`
       else
-        stc += app.sentence[loc.pmid][loc.stcid].word[wid]
+        stc += app.sources[word.pmid].sentences[loc.stcid].word[wid]
 
-      stc += app.sentence[loc.pmid][loc.stcid].nonWord[wid]
+      stc += app.sources[word.pmid].sentences[loc.stcid].nonWord[wid]
     }
 
-    stcs.push({ pmid: loc.pmid, stc: stc, stcid: loc.stcid, value: stcs.length + 1 })
+    stcs.push({ pmid: word.pmid, stc: stc, stcid: loc.stcid, value: stcs.length + 1 })
   }
 
-  document.querySelector('#details').innerHTML = Mustache.render(app.detail_tmpl, { stcs: stcs, word: word })
+  document.querySelector('#details').innerHTML = Mustache.render(app.detail_tmpl, { stcs: stcs, word: word.w })
 
   document.querySelector('#details button').onclick = () => {
     let entity = document.querySelector('#entity input:checked'),
@@ -64,7 +64,7 @@ const render = (word, locs) => {
       pmid   : detail.dataset.pmid,
       stcid  : detail.dataset.stcid,
       value  : detail.dataset.value,
-      word   : word
+      word   : word.w
     })
 
     socket.emit('next', render)
@@ -73,8 +73,8 @@ const render = (word, locs) => {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-socket.on('init', ([uid, sentence]) => {
-  app.sentence = sentence
+socket.on('init', ([uid, sources]) => {
+  app.sources = sources
 
   document.getElementById('uid').textContent = uid
 
