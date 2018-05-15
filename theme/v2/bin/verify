@@ -1,0 +1,57 @@
+#!/usr/local/bin/lsc
+
+require! <[fs]>
+
+#### global variables (with default values)
+
+opt =
+  path:
+    v1: res: \../../v1/res src: \../../v1/src
+    v2: res: \../res       src: \../src
+opt.pmids = fs.readdir-sync "#{opt.path.v1.res}/world/box/"
+
+# resources
+
+articles =
+  new: { [pmid, JSON.parse fs.read-file-sync "#{opt.path.v1.res}/world/box/#pmid" \utf-8] for pmid in opt.pmids }
+  raw: { [pmid, JSON.parse fs.read-file-sync "#{opt.path.v1.src}/box/box1/#pmid"  \utf-8] for pmid in opt.pmids }
+
+bio-entity = JSON.parse fs.read-file-sync "#{opt.path.v1.res}/words/bioEntity.json" \utf-8
+subjects   = JSON.parse fs.read-file-sync "#{opt.path.v2.res}/subjects.json"        \utf-8
+
+#######################################################################################
+
+for sid, subject-info of subjects
+  biocuration = v1: {} v2: {}
+
+  v1-logs = fs.read-file-sync "#{opt.path.v2.src}/mia-v1/#{subject-info.eid-v1}/log" \utf-8
+  v1-logs = v1-logs / \\n
+
+  for log in v1-logs.slice 0 -1
+    log = JSON.parse log
+
+    continue if \submit isnt log.action
+
+    new-stc = articles.new[log.pmid].word[log.stcid]
+    raw-stc = articles.raw[log.pmid].word[log.stcid]
+
+    renewed-wids = {}
+
+    for raw-wid in log.protein
+      new-wid = false
+      raw-wid = parseInt raw-wid
+
+      for i til raw-stc.length
+        if      raw-stc[raw-wid] is new-stc[raw-wid - i] then renewed-wids[new-wid = raw-wid - i] = true; break
+        else if raw-stc[raw-wid] is new-stc[raw-wid + i] then renewed-wids[new-wid = raw-wid + i] = true; break
+        else if new-stc[raw-wid - i] and new-stc[raw-wid - i].match raw-stc[raw-wid] then renewed-wids[new-wid = raw-wid - i] = true; break
+        else if new-stc[raw-wid + i] and new-stc[raw-wid + i].match raw-stc[raw-wid] then renewed-wids[new-wid = raw-wid + i] = true; break
+
+      throw {sid, log, raw-wid} if false is new-wid
+
+    for w, wid in new-stc
+      biocuration.v1[log.pmid] ?= {}
+      biocuration.v1[log.pmid][w] ?= normal: 0 protein: 0
+      biocuration.v1[log.pmid][w][if renewed-wids[wid] then \protein else \normal]++
+
+# vi:et:ft=ls
