@@ -5,6 +5,7 @@ require! <[fs]>
 #### global variables (with default values)
 
 opt =
+  min-supp: 5
   path:
     v1: res: \../../v1/res src: \../../v1/src
     v2: res: \../res       src: \../src
@@ -16,13 +17,54 @@ articles =
   new: { [pmid, JSON.parse fs.read-file-sync "#{opt.path.v1.res}/world/box/#pmid" \utf-8] for pmid in opt.pmids }
   raw: { [pmid, JSON.parse fs.read-file-sync "#{opt.path.v1.src}/box/box1/#pmid"  \utf-8] for pmid in opt.pmids }
 
-bio-entity = JSON.parse fs.read-file-sync "#{opt.path.v1.res}/words/bioEntity.json" \utf-8
-subjects   = JSON.parse fs.read-file-sync "#{opt.path.v2.res}/subjects.json"        \utf-8
+bio-entity    = JSON.parse fs.read-file-sync "#{opt.path.v1.res}/words/bioEntity.json" \utf-8
+labeled-words = JSON.parse fs.read-file-sync "#{opt.path.v2.res}/labeled-words.json"   \utf-8
+subjects      = JSON.parse fs.read-file-sync "#{opt.path.v2.res}/subjects.json"        \utf-8
+
+# utility
+
+function verify-v1
+  verify-rlt = tp: 0 fp: 0 fn: 0 tn: 0
+
+  for pmid, mark-rlt of it
+    for word, label of mark-rlt
+      continue if label.protein is label.normal
+
+      continue if not labeled-words[pmid][word] or labeled-words[pmid][word] < opt.min-supp
+
+      if bio-entity.named-entity.gene[word] or bio-entity.named-entity.protein[word]
+        if label.protein > label.normal then verify-rlt.tp++
+        else                                 verify-rlt.fn++
+
+      else
+        if label.protein > label.normal then verify-rlt.fp++
+        else                                 verify-rlt.tn++
+
+  verify-rlt
+
+function verify-v2
+  verify-rlt = tp: 0 fp: 0 fn: 0 tn: 0
+
+  for pmid, mark-rlt of it
+    for word, label of mark-rlt
+      continue if not labeled-words[pmid][word] or labeled-words[pmid][word] < opt.min-supp
+
+      if bio-entity.named-entity.gene[word] or bio-entity.named-entity.protein[word]
+        if \Gene is label or \Protein is label then verify-rlt.tp++
+        else                                        verify-rlt.fn++
+
+      else
+        if \Gene is label or \Protein is label then verify-rlt.fp++
+        else                                        verify-rlt.tn++
+
+  verify-rlt
 
 #######################################################################################
 
 for sid, subject-info of subjects
   biocuration = v1: {} v2: {}
+
+  # extract v1 results
 
   v1-logs = fs.read-file-sync "#{opt.path.v2.src}/mia-v1/#{subject-info.eid-v1}/log" \utf-8
   v1-logs = v1-logs / \\n
@@ -53,5 +95,18 @@ for sid, subject-info of subjects
       biocuration.v1[log.pmid] ?= {}
       biocuration.v1[log.pmid][w] ?= normal: 0 protein: 0
       biocuration.v1[log.pmid][w][if renewed-wids[wid] then \protein else \normal]++
+
+  # extract v2 results
+
+  v2-logs = fs.read-file-sync "#{opt.path.v2.src}/mark-result/#{subject-info.eid-v2}" \utf-8
+  v2-logs = v2-logs / \\n
+
+  for log in v2-logs
+    log = JSON.parse log
+
+    continue if \submit isnt log.action
+
+    biocuration.v2[log.pmid] ?= {}
+    biocuration.v2[log.pmid][log.word] = log.entity
 
 # vi:et:ft=ls
