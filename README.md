@@ -32,9 +32,7 @@
 3. Create essential folders
 
 ```bash
-
-$ mkdir -p theme/v1/res/verify/NER theme/v1/res/world/box theme/v2/res theme/v2/src/mark-result
-
+$ mkdir -p theme/v1/res/verify/NER theme/v2/res theme/v2/src/mark-result
 ```
 
 4. Install modules
@@ -52,18 +50,23 @@ $ yarn
 1. Go to the working directory
 
 ```bash
-
 $ cd theme/v1/
-
 ```
 
 2. Upload the annotation results (players' logs in Markteria)
 
-```
-
+```bash
 $ mkdir -p src/mark-result/expert src/mark-result/subject
 
 # replace the file name of each annotator's log with his own experiment ID (such as '_dirty')
 # upload the file to 'expert' directory if an annotator is expert; otherwise, to 'subject' directory
+```
 
+3. Upload the preprocessed resources
+
+```bash
+$ mkdir -p res/words res/world/box
+
+# each word in the articles was categorized, and the results were put into 'res/words'
+# each article was preprocessed, and the results as well as the information of annototors were put into 'res/world'
 ```
