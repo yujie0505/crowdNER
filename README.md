@@ -4,7 +4,9 @@
 
 ## Start the annotation tool
 
-Create a file, `option.json`, for server options; the field for google could refer to [edit-google-spreadsheet](https://www.npmjs.com/package/edit-google-spreadsheet) on npm
+1. Go back to the root of this repository
+
+2. Create a file, `option.json`, for server options; the field for google could refer to [edit-google-spreadsheet](https://www.npmjs.com/package/edit-google-spreadsheet) on npm
 
 ```json
 {
@@ -25,4 +27,12 @@ Create a file, `option.json`, for server options; the field for google could ref
     }
   }
 }
+```
+
+3. Then, install modules and create essential folders
+
+```bash
+$ yarn
+
+$ mkdir -p theme/v2/res theme/v2/src/mark-result
 ```
