@@ -2,9 +2,9 @@
 
 > Using outlier detection and entity recognition to improve a crowdsourcing biocuration system
 
-## Start the annotation tool
+## Set environment
 
-1. Go back to the root of this repository
+1. Go to the root of this repository
 
 2. Create a file, `option.json`, for server options; the field for google could refer to [edit-google-spreadsheet](https://www.npmjs.com/package/edit-google-spreadsheet) on npm
 
@@ -29,10 +29,12 @@
 }
 ```
 
-3. Then, install modules and create essential folders
+3. Then install modules
 
 ```bash
-$ yarn
+$ npm i
 
-$ mkdir -p theme/v2/res theme/v2/src/mark-result
+# or
+
+$ yarn
 ```
