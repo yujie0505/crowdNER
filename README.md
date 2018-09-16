@@ -67,6 +67,14 @@ $ mkdir -p src/mark-result/expert src/mark-result/subject
 ```bash
 $ mkdir -p res/words res/world/box
 
+# upload the gold-standard answer for the articles as 'res/gs-answer.json'
 # each word in the articles was categorized, and the results were put into 'res/words'
 # each article was preprocessed, and the results as well as the information of annototors were put into 'res/world'
+```
+
+4. Build resources
+
+```bash
+$ cd bin/
+
 ```
