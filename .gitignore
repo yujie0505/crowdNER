@@ -3,7 +3,6 @@ lib/crowd.js
 node_modules/
 npm-debug.log
 option.json
-theme/**/bin/*.opt.*
 theme/**/res/
 theme/**/src/
 theme/**/tools/
