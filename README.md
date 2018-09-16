@@ -29,7 +29,15 @@
 }
 ```
 
-3. Then install modules
+3. Create essential folders
+
+```bash
+
+$ mkdir -p theme/v1/res/verify/NER theme/v1/res/world/box theme/v2/res theme/v2/src/mark-result
+
+```
+
+4. Install modules
 
 ```bash
 $ npm i
@@ -37,4 +45,25 @@ $ npm i
 # or
 
 $ yarn
+```
+
+## Conduct analysis for Markteria
+
+1. Go to the working directory
+
+```bash
+
+$ cd theme/v1/
+
+```
+
+2. Upload the annotation results (players' logs in Markteria)
+
+```
+
+$ mkdir -p src/mark-result/expert src/mark-result/subject
+
+# replace the file name of each annotator's log with his own experiment ID (such as '_dirty')
+# upload the file to 'expert' directory if an annotator is expert; otherwise, to 'subject' directory
+
 ```
