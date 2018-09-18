@@ -65,7 +65,7 @@ $ mkdir -p src/mark-result/expert src/mark-result/subject
 3. Create a soft link pointing to the article box in _Markteria_
 
 ```bash
-ln -s [root of Markteria repository]/world/[world name, such as 'NER' or 'PPI']/res/box/ src/
+$ ln -s [root of Markteria repository]/world/[world name, such as 'NER' or 'PPI']/res/box/ src/
 ```
 
 4. Upload the preprocessed resources
@@ -78,14 +78,14 @@ $ mkdir -p res/words res/world/box
 # each article was preprocessed, and the results as well as the information of annototors were put into 'res/world/'
 ```
 
-5. Parse annotators' biocuration results
+5. Build benchmark (sentences annotated by at least 3 amateur annotators)
 
 ```bash
 $ cd bin/
 
-# parse all the amateur and expert biocuration results
-./ans -a parse-mark-result
+# parse all the amateur annotators' biocuration results (without domain expert), the result is generated in '../res/mark-result.json'
+$ ./ans -a parse-mark-result -b _dirty -b _tseng
 
-# parse all the amateur biocuration results (without expert)
-./ans -a parse-mark-result -b _dirty -b _tseng
+# build benchmark, the result is generated in '../res/benchmark-stcs.json'
+$ ./ans -a build-benchmark
 ```
