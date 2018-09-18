@@ -45,27 +45,27 @@ $ npm i
 $ yarn
 ```
 
-## Conduct analysis for Markteria
+## Conduct analyses for _Markteria_
 
 1. Go to the working directory
 
 ```bash
-$ cd theme/v1/
+$ cd [root of this repository]/theme/v1/
 ```
 
-2. Upload the annotation results (players' logs in Markteria)
+2. Upload the biocuration results (players' logs in _Markteria_)
 
 ```bash
 $ mkdir -p src/mark-result/expert src/mark-result/subject
 
 # replace the file name of each annotator's log with his own experiment ID (such as '_dirty')
-# upload the file to 'src/mark-result/expert' directory if an annotator is expert; otherwise, to 'src/mark-result/subject' directory
+# upload the log file to 'src/mark-result/expert/' directory if an annotator is expert; otherwise, to 'src/mark-result/subject/' directory
 ```
 
-3. Create a soft link pointing to the required article box in Markteria
+3. Create a soft link pointing to the article box in _Markteria_
 
 ```bash
-ln -s [path to Markteria repository]/world/[world name, such as 'NER' or 'PPI']/res/box/ src/
+ln -s [root of Markteria repository]/world/[world name, such as 'NER' or 'PPI']/res/box/ src/
 ```
 
 4. Upload the preprocessed resources
@@ -73,9 +73,9 @@ ln -s [path to Markteria repository]/world/[world name, such as 'NER' or 'PPI']/
 ```bash
 $ mkdir -p res/words res/world/box
 
-# upload the gold-standard answer for the articles as 'res/gs-answer.json'
-# each word in the articles was categorized, and the results were put into 'res/words'
-# each article was preprocessed, and the results as well as the information of annototors were put into 'res/world'
+# upload the gold-standard answer for the articles to 'res/'
+# each word in the articles was categorized, and the results were put into 'res/words/'
+# each article was preprocessed, and the results as well as the information of annototors were put into 'res/world/'
 ```
 
 5. Parse annotators' biocuration results
