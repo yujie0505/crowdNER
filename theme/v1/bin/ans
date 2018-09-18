@@ -15,12 +15,14 @@ opt =
   min-supp: 3
   path: res: \../res src: \../src
   theme: \NER
+  to-spreadsheet: off
 <<< require \node-getopt .create [
   * [\a , \action=ARG     , 'specify operation']
   * [\b , \blacklist=ARG+ , 'push subject id in blacklist']
   * [\f , \minFreq=ARG    , 'set minimum threshold of word frequency in each article to be extracted']
   * [\F , \fixedSupp      , 'set for integrating results exactly satisfy the required support (default: more than minimum support)']
   * [\h , \help           , 'show this help']
+  * [\s , \toSpreadsheet  , "send verification results to google spreadsheet (default: `#{opt.to-spreadsheet}`)"]
   * [\t , \maxTops=ARG    , 'set maximum amounts of top frequent words in each article to be extracted']
   * [\T , \theme=ARG      , "specify theme (default: `#{opt.theme}`)"]
 ] .bind-help '\nUsage: lsc ans.ls\n[[OPTIONS]]\n' .parse-system!options
@@ -483,7 +485,8 @@ switch opt.action
 
   fs.write-file-sync "#{opt.path.res}/verify/#{opt.theme}/verification.json" JSON.stringify verify-rlt, null 2
 
-  sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
+  if opt.to-spreadsheet
+    sheet.add stats; sheet.send !-> return ERR 'Failed as updating google spreadsheet' if it
 
 | \verify-benchmark
   benchmark-stcs = JSON.parse fs.read-file-sync "#{opt.path.res}/benchmark-stcs.json" \utf-8
