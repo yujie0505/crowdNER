@@ -20,10 +20,12 @@
       "client_secret": "",
       "refresh_token": ""
     },
-    "spreadsheetId": "",
-    "worksheet": {
-      "enroll": "",
-      "stats": ""
+    "v1": {
+      "spreadsheetId": "",
+      "worksheetId": {
+        "enroll": "",
+        "stats": ""
+      }
     }
   }
 }
@@ -78,7 +80,7 @@ $ mkdir -p res/words res/world/box
 # each article was preprocessed, and the results as well as the information of annototors were put into 'res/world/'
 ```
 
-5. Build benchmark (sentences annotated by at least 3 amateur annotators)
+5. Build the benchmark (sentences annotated by at least 3 amateur annotators)
 
 ```bash
 $ cd bin/
