@@ -85,9 +85,34 @@ $ mkdir -p res/words res/world/box
 ```bash
 $ cd bin/
 
-# parse all the amateur annotators' biocuration results (without domain expert), the result is generated in '../res/mark-result.json'
+# parse all the amateur annotators' biocuration results (without domain expert), the output is generated in '../res/mark-result.json'
 $ ./ans -a parse-mark-result -b _dirty -b _tseng
 
-# build benchmark, the result is generated in '../res/benchmark-stcs.json'
+# build benchmark, the output is generated in '../res/benchmark-stcs.json'
 $ ./ans -a build-benchmark
+
+# the corresponding options for 'ans'
+# -----------------------------------
+# Usage: ./ans
+#   -a, --action=ARG      specify operation
+#   -b, --blacklist=ARG+  push subject id in blacklist
+#   -f, --minFreq=ARG     set minimum threshold of word frequency in each article to be extracted
+#   -F, --fixedSupp       set for integrating results exactly satisfy the required support (default: more than minimum support)
+#   -h, --help            show this help
+#   -s, --toSpreadsheet   send verification results to google spreadsheet (default: `false`)
+#   -t, --maxTops=ARG     set maximum amounts of top frequent words in each article to be extracted
+#   -T, --theme=ARG       specify theme (default: `NER`)
+```
+
+6. Verify the biocuration results
+
+```bash
+# parse all the amateur and expert annotators' biocuration results
+$ ./ans -a parse-mark-result
+
+# verify the individual biocuration results on benchmark, the output would be shown on the command line
+$ ./ans -a verify-benchmark
+
+# verify the aggregated biocuration results on benchmark, the output is generated in '../res/verify/NER/verification.json'
+$ ./ans -a verify
 ```
