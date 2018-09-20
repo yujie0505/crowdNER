@@ -142,6 +142,13 @@ $ ./ans -a parse-mark-result
 
 # compute the personal priori-quality for all the amateur and expert annotators, the output is generated in '../res/verify/NER/labeler-score.json'
 $ ./labeler-score
+
+# the corresponding options for 'labeler-score'
+# ---------------------------------------------
+# Usage: lsc labeler-score.ls
+#   -h, --help         show this help
+#   -s, --minSupp=ARG  set minimum support of sentences (default: `4`)
+#   -T, --theme=ARG    specify theme (default: `NER`)
 ```
 
 - amateur only
