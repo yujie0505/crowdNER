@@ -15,7 +15,7 @@ opt =
   * [\h , \help        , 'show this help']
   * [\s , \minSupp=ARG , "set minimum support of sentences (default: `#{opt.min-supp}`)"]
   * [\T , \theme=ARG   , "specify theme (default: `#{opt.theme}`)"]
-] .bind-help '\nUsage: lsc outlier.ls\n[[OPTIONS]]\n' .parse-system!options
+] .bind-help '\nUsage: lsc labeler-score.ls\n[[OPTIONS]]\n' .parse-system!options
 opt.min-supp = parseInt opt.min-supp
 
 res =
