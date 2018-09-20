@@ -93,7 +93,7 @@ $ ./ans -a build-benchmark
 
 # the corresponding options for 'ans'
 # -----------------------------------
-# Usage: ./ans
+# Usage: lsc ans.ls
 #   -a, --action=ARG      specify operation
 #   -b, --blacklist=ARG+  push subject id in blacklist
 #   -f, --minFreq=ARG     set minimum threshold of word frequency in each article to be extracted
@@ -130,4 +130,26 @@ $ ./ans -a verify-benchmark
 
 # verify the aggregated biocuration results on benchmark, the output is generated in '../res/verify/NER/verification.json'
 $ ./ans -a verify -b _dirty -b _tseng
+```
+
+7. Compute the _priori-quality_
+
+- amateur and expert
+
+```bash
+# parse all the amateur and expert annotators' biocuration results
+$ ./ans -a parse-mark-result
+
+# compute the personal priori-quality for all the amateur and expert annotators, the output is generated in '../res/verify/NER/labeler-score.json'
+$ ./labeler-score
+```
+
+- amateur only
+
+```bash
+# parse all the amateur annotators' biocuration results
+$ ./ans -a parse-mark-result -b _dirty -b _tseng
+
+# compute the personal priori-quality for all the amateur annotators, the output is generated in '../res/verify/NER/labeler-score.json'
+$ ./labeler-score
 ```
