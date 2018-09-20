@@ -106,13 +106,28 @@ $ ./ans -a build-benchmark
 
 6. Verify the biocuration results
 
+- amateur and expert
+
 ```bash
 # parse all the amateur and expert annotators' biocuration results
 $ ./ans -a parse-mark-result
 
-# verify the individual biocuration results on benchmark, the output would be shown on the command line
+# verify the individual biocuration results on benchmark, the average performance would be shown on the command line
 $ ./ans -a verify-benchmark
 
 # verify the aggregated biocuration results on benchmark, the output is generated in '../res/verify/NER/verification.json'
 $ ./ans -a verify
+```
+
+- amateur only
+
+```bash
+# parse all the amateur annotators' biocuration results
+$ ./ans -a parse-mark-result -b _dirty -b _tseng
+
+# verify the individual biocuration results on benchmark, the average performance would be shown on the command line
+$ ./ans -a verify-benchmark
+
+# verify the aggregated biocuration results on benchmark, the output is generated in '../res/verify/NER/verification.json'
+$ ./ans -a verify -b _dirty -b _tseng
 ```
