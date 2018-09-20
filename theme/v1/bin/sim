@@ -28,7 +28,7 @@ opt =
 <<< require \node-getopt .create [
   * [\h , \help             , 'show this help']
   * [\p , \processor=ARG    , "set numbers of processor (default: #{opt.processor})"]
-  * [\q , \qqPlot           , 'simulate for quantity-quality plot']
+  * [\q , \qqPlot           , "simulate for quantity-quality plot (default: `#{opt.qq-plot}`)"]
   * [\t , \theme=ARG        , "specify theme (default: `#{opt.theme}`)"]
 ] .bind-help '\nUsage: lsc sim\n[[OPTIONS]]\n' .parse-system!options
 opt.simulation <<< require \./.sim.opt.ls
