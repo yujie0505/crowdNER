@@ -160,3 +160,21 @@ $ ./ans -a parse-mark-result -b _dirty -b _tseng
 # compute the personal priori-quality for all the amateur annotators, the output is generated in '../res/verify/NER/labeler-score.json'
 $ ./labeler-score
 ```
+
+8. Carry out the simulation
+
+```bash
+# simulate the biocuration behavior with parameters in './.sim.opt.ls', the output is generated in '../res/verify/NER/sim-verification.json'
+$ ./sim -p 32
+
+# simulate the quantity-quality pairs which achieve an expert biocuration level, the output is generated in '../res/verify/NER/quantity-quality.json'
+$ node --max_old_space_size=8192 /usr/local/bin/lsc sim -p 32 -q
+
+# the corresponding options for 'sim'
+# -----------------------------------
+# Usage: lsc sim.ls
+#   -h, --help           show this help
+#   -p, --processor=ARG  set numbers of processor (default: 4)
+#   -q, --qqPlot         simulate for quantity-quality plot (default: `false`)
+#   -t, --theme=ARG      specify theme (default: `NER`)
+```
