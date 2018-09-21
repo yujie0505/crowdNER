@@ -38,7 +38,8 @@
   },
   "scripts": {
     "lint": "./node_modules/.bin/eslint ./bin/**/bin/; exit 0",
-    "start": "./node_modules/.bin/gulp dev"
+    "start": "./node_modules/.bin/gulp dev",
+    "postinstall": "/usr/local/bin/lsc -c ./lib/crowd.ls"
   },
   "license": "MIT"
 }
