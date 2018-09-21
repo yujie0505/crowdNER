@@ -30,17 +30,18 @@ opt =
   * [\p , \processor=ARG    , "set numbers of processor (default: #{opt.processor})"]
   * [\q , \qqPlot           , "simulate for quantity-quality plot (default: `#{opt.qq-plot}`)"]
   * [\t , \theme=ARG        , "specify theme (default: `#{opt.theme}`)"]
-] .bind-help '\nUsage: lsc sim\n[[OPTIONS]]\n' .parse-system!options
+] .bind-help '\nUsage: lsc sim.ls\n[[OPTIONS]]\n' .parse-system!options
 opt.simulation <<< require \./.sim.opt.ls
 
-store = napajs.store.create \counter
-store.set \simExpIds {}
+napajs.store.create \counter .set \simExpIds {}
 
 zone = napajs.zone.create \zone workers: parseInt opt.processor
 zone.broadcast '''
-  crowd = require('../../../lib/crowd.js')
-  fs    = require('fs')
-  math  = require('../../../lib/math.js')
+  var crowd  = require('../../../lib/crowd.js')
+  var math   = require('../../../lib/math.js')
+  var napajs = require('napajs')
+
+  var store  = napajs.store.get('counter')
 '''
 
 if opt.qq-plot
@@ -57,7 +58,7 @@ if opt.qq-plot
 #### utility
 
 function simulate sim-category, opt, gs-answer, stc-value
-  [crowd, fs, math] = [global[module-name] for module-name in <[crowd fs math]>]
+  [crowd, math, store] = [global[module-name] for module-name in <[crowd math store]>]
 
   choose-as-trivial-word = math.choose-weighted [0 1] [100 - (_prob = parseInt opt.simulation[opt.theme].trivial-word-ratio.negative * 100), _prob]
 
@@ -128,10 +129,10 @@ function simulate sim-category, opt, gs-answer, stc-value
 
       sim-result.verification[sim-volume][min-conf.to-fixed 1] = verify-rlt
 
-  sim-exp-ids = global.napa.store.get \counter .get \simExpIds
+  sim-exp-ids = store.get \simExpIds
   sim-exp-ids[sim-category.title] ?= 0
   sim-exp-id = ++sim-exp-ids[sim-category.title]
-  global.napa.store.get \counter .set \simExpIds sim-exp-ids
+  store.set \simExpIds sim-exp-ids
 
   console.log "[#{opt.color.dark-gray}#{(new Date!to-string!.split ' ')[4]}#{opt.color.reset}] #{opt.color.yellow}Finished #{opt.color.cyan}#{sim-category.title} #{opt.color.light-red}#sim-exp-id#{opt.color.reset}/#{opt.simulation.repeated}"
 
