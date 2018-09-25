@@ -207,3 +207,31 @@ $ node --max_old_space_size=8192 /usr/local/bin/lsc sim -p 32 -q
 #   -q, --qqPlot         simulate for quantity-quality plot (default: `false`)
 #   -t, --theme=ARG      specify theme (default: `NER`)
 ```
+
+## Start the improved biocuration tool
+
+1. Build corpus
+
+```bash
+# take the biocuration results of automatic bioNER tools as reference, the output is generated in '../res/verify/NER/hybrid-tools-rlt.json'
+$ cd [root of this repository]/theme/v1/bin/
+$ ./hybrid-tools -t GENIA_tagger -t GNormPlus -t NLProt -t Neji -t Swiss_Prot
+
+# build corpus, the output is generated in '../res/db.json'
+$ cd [root of this repository]/theme/v2/bin/
+$ ./build-db
+```
+
+2. Start the server
+
+```bash
+$ cd [root of this repository]/
+
+$ npm start
+
+# or
+
+$ yarn start
+
+# the individual biocuration result would be generated in 'theme/v2/src/mark-result/'
+```
