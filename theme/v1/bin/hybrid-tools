@@ -12,7 +12,7 @@ opt =
   * [\c , \minConf=ARG , "specify the minimum confidence (default: #{opt.min-conf})"]
   * [\h , \help        , 'show this help']
   * [\t , \tools=ARG+  , "specify automatic tools (default: #{opt.tools * ', '})"]
-] .bind-help '\nUsage: lsc hybrid-tools\n[[OPTIONS]]\n' .parse-system!options
+] .bind-help '\nUsage: lsc hybrid-tools.ls\n[[OPTIONS]]\n' .parse-system!options
 opt.min-conf = parseInt opt.min-conf
 
 gs-answer = JSON.parse fs.read-file-sync "#{opt.path.res}/gs-answer.json" \utf-8
