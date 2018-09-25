@@ -58,10 +58,12 @@ $ cd [root of this repository]/theme/v1/
 2. Upload the biocuration results (players' logs in _Markteria_)
 
 ```bash
-$ mkdir -p src/mark-result/expert src/mark-result/subject
+$ mkdir -p src/mark-result/expert src/mark-result/subject src/words tools
 
 # replace the file name of each annotator's log with his own experiment ID (such as '_dirty')
 # upload the log file to 'src/mark-result/expert/' directory if an annotator is expert; otherwise, to 'src/mark-result/subject/' directory
+# upload the stop word list to 'src/words/stopWords.json'
+# upload all the biocuration results of automatic bioNER tools to 'tools/[bioNER tool name]/predict.mia.json'
 ```
 
 3. Create a soft link pointing to the article box in _Markteria_
