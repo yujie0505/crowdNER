@@ -132,6 +132,33 @@ $ ./ans -a verify-benchmark
 $ ./ans -a verify -b _dirty -b _tseng
 ```
 
+- automatic bioNER tools
+
+```bash
+# verify the biocuration results of 'GENIA_tagger' on benchmark
+$ ./hybrid-tools -t GENIA_tagger -b
+
+# verify the biocuration results of 'GNormPlus' on benchmark
+$ ./hybrid-tools -t GNormPlus -b
+
+# verify the biocuration results of 'NLProt' on benchmark
+$ ./hybrid-tools -t NLProt -b
+
+# verify the biocuration results of 'Neji' on benchmark
+$ ./hybrid-tools -t Neji -b
+
+# verify the biocuration results of 'Swiss_Prot' on benchmark
+$ ./hybrid-tools -t Swiss_Prot -b
+
+# the corresponding options for 'hybrid-tools'
+# --------------------------------------------
+# Usage: lsc hybrid-tools.ls
+#   -b, --benchmark    verify words in benchmark sentences
+#   -c, --minConf=ARG  specify the minimum confidence (default: 1)
+#   -h, --help         show this help
+#   -t, --tools=ARG+   specify automatic tools (default: GENIA_tagger, GNormPlus, NLProt, Neji, Swiss_Prot)
+```
+
 7. Compute the _priori-quality_
 
 - amateur and expert
