@@ -19,7 +19,7 @@
     "imports-loader": "^0.7.1",
     "napajs": "^0.2.3",
     "node-getopt": "^0.2.3",
-    "node-sass": "^4.9.3",
+    "node-sass": "^4.13.1",
     "postcss-loader": "^2.0.5",
     "pug": "^2.0.0-beta11",
     "pug-html-loader": "^1.1.4",
