@@ -25,7 +25,7 @@
     "pug-html-loader": "^1.1.4",
     "require-reload": "^0.2.2",
     "sass-loader": "^6.0.3",
-    "socket.io": "^2.0.4",
+    "socket.io": "^2.4.0",
     "style-loader": "^0.13.1",
     "url-loader": "^0.5.8",
     "webpack": "^2.2.1",
