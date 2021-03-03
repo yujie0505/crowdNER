@@ -21,7 +21,7 @@
     "node-getopt": "^0.2.3",
     "node-sass": "^4.9.3",
     "postcss-loader": "^2.0.5",
-    "pug": "^2.0.0-beta11",
+    "pug": "^3.0.1",
     "pug-html-loader": "^1.1.4",
     "require-reload": "^0.2.2",
     "sass-loader": "^6.0.3",
