@@ -11,7 +11,7 @@
     "eslint": "4.18.2",
     "eslint-loader": "^1.7.0",
     "eslint-plugin-react": "^6.10.3",
-    "express": "^4.16.2",
+    "express": "^4.17.3",
     "extract-loader": "^0.1.0",
     "file-loader": "^0.10.1",
     "gulp": "^3.9.1",
